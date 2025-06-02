@@ -1,0 +1,46 @@
+import base64
+import io
+import torchaudio
+from fastapi import FastAPI, UploadFile, Form
+from audio_utils.separator import separate_audio
+from fastapi.middleware.cors import CORSMiddleware
+from audio_utils.io import ensure_wav, save_uploaded_file
+import shutil
+import os
+from pydub import AudioSegment
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.post("/separate")
+async def separate(file: UploadFile, prompt: str = Form(...)):
+    filepath = save_uploaded_file(file, "separated/")
+    wav_path = ensure_wav(filepath)
+    stems = separate_audio(wav_path)
+    selected_stems = "calls interpreter from llm part of the project"
+
+    stems = separate_audio(filepath)
+    stem_data = []
+    for i, stem_tensor in enumerate(stems):
+        if stem_tensor.ndim == 3:
+            stem_tensor = stem_tensor[0]
+        elif stem_tensor.ndim == 1:
+            stem_tensor = stem_tensor.unsqueeze(0)
+
+        buf = io.BytesIO()
+        torchaudio.save(buf, stem_tensor, 44100, format="wav")
+        buf.seek(0)
+
+        b64_audio = base64.b64encode(buf.read()).decode("utf-8")
+        stem_data.append({
+            "name": f"stem{i}",
+            "audio_base64": b64_audio
+        })
+
+    return {"stems": stem_data}
