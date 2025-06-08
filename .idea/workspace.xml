@@ -108,10 +108,8 @@
       <change afterPath="$PROJECT_DIR$/demucs/tools/export.py" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/demucs/tools/test_pretrained.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/audio_utils/separator.py" beforeDir="false" afterPath="$PROJECT_DIR$/audio_utils/separator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/demucs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/demucs~HEAD" beforeDir="false" afterPath="$PROJECT_DIR$/demucs~HEAD" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/llm_backend/interpreter.py" beforeDir="false" afterPath="$PROJECT_DIR$/llm_backend/interpreter.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -129,14 +127,14 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.uvicorn.executor": "Debug",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "Rebasing feature/llm-audio-separation-initial-flow"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.uvicorn.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Rebasing feature/llm-audio-separation-initial-flow&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="uvicorn" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="text-guided-audio-split" />
