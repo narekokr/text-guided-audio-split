@@ -1,6 +1,7 @@
 import uuid
 import torchaudio
 from fastapi import FastAPI, UploadFile, Form
+
 from audio_utils.separator import separate_audio
 from fastapi.middleware.cors import CORSMiddleware
 import shutil
@@ -58,7 +59,7 @@ async def separate(file: UploadFile, prompt: str = Form(...)):
 
         stem_data.append({
             "name": stem_name,
-            "file_url": f"/downloads/{output_name}"
+            "file_name": f"{output_name}"
         })
 
     return {"stems": stem_data}
