@@ -5,7 +5,6 @@ import torchaudio.transforms as T
 import torch
 from llm_backend.interpreter import interpret_prompt
 
-"""
 
 def separate_audio(filepath: str, prompt: str):
     model = get_model(name="mdx_extra_q")
@@ -92,3 +91,4 @@ def separate_audio(filepath: str, prompt: str):
     }
 
     return filtered_stems
+"""

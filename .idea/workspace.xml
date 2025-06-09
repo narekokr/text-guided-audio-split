@@ -5,111 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f6dfd28e-7f50-4cf5-a3b7-392bb1272b27" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/demucs/.github/ISSUE_TEMPLATE/bug.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/.github/ISSUE_TEMPLATE/question.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/.github/workflows/linter.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/.github/workflows/tests.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/CODE_OF_CONDUCT.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/CONTRIBUTING.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/Demucs.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/LICENSE" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/MANIFEST.in" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/Makefile" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/config.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/dset/aetl.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/dset/auto_extra_test.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/dset/auto_mus.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/dset/extra44.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/dset/extra_mmi_goodclean.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/dset/extra_test.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/dset/musdb44.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/dset/sdx23_bleeding.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/dset/sdx23_labelnoise.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/svd/base.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/svd/base2.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/svd/default.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/variant/default.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/variant/example.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/conf/variant/finetune.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/__main__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/api.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/apply.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/audio.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/augment.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/demucs.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/distrib.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/ema.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/evaluate.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/grids/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/grids/_explorers.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/grids/mdx.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/grids/mdx_extra.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/grids/mdx_refine.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/grids/mmi.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/grids/mmi_ft.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/grids/repro.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/grids/repro_ft.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/grids/sdx23.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/hdemucs.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/htdemucs.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/pretrained.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/py.typed" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/remote/files.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/remote/hdemucs_mmi.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/remote/htdemucs.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/remote/htdemucs_6s.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/remote/htdemucs_ft.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/remote/mdx.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/remote/mdx_extra.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/remote/mdx_extra_q.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/remote/mdx_q.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/remote/repro_mdx_a.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/remote/repro_mdx_a_hybrid_only.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/remote/repro_mdx_a_time_only.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/repitch.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/repo.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/separate.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/solver.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/spec.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/states.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/svd.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/train.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/transformer.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/utils.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/wav.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/demucs/wdemucs.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/docs/api.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/docs/linux.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/docs/mac.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/docs/mdx.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/docs/release.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/docs/sdx23.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/docs/training.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/docs/windows.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/environment-cpu.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/environment-cuda.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/hubconf.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/mypy.ini" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/outputs.tar.gz" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/requirements.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/requirements_minimal.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/setup.cfg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/setup.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/test.mp3" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/tools/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/tools/automix.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/tools/bench.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/tools/convert.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/tools/export.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/demucs/tools/test_pretrained.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/demucs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/api/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/api/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -132,7 +29,7 @@
     &quot;Python.uvicorn.executor&quot;: &quot;Debug&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;Rebasing feature/llm-audio-separation-initial-flow&quot;
+    &quot;git-widget-placeholder&quot;: &quot;feature/llm-audio-separation-initial-flow&quot;
   }
 }</component>
   <component name="RunManager">
