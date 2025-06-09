@@ -37,7 +37,7 @@ if uploaded_file and st.button("Separate"):
             stems = response.json()["stems"]
             for stem in stems:
                 name = stem["name"]
-                url, = stem["file_url"]
+                url = stem["file_name"]
 
                 st.markdown(f"**{name.capitalize()}**")
                 st.audio(f"{API_URL}/downloads/{url}", format="audio/wav")
