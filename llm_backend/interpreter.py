@@ -47,4 +47,3 @@ def interpret_prompt(prompt: str) -> list[str]:
     logger.info(f"Filtered stems: {valid_stems}")
     #Passing anything else (like "guitar", "piano") will raise errors or produce silence. So filtering protects the system for 1st iteration level. Adjust this later
     return valid_stems
-
