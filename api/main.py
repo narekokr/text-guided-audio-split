@@ -1,6 +1,8 @@
 import uuid
 import torchaudio
 from fastapi import FastAPI, UploadFile, Form
+from starlette.responses import FileResponse
+
 from audio_utils.separator import separate_audio
 from fastapi.middleware.cors import CORSMiddleware
 import shutil
@@ -58,11 +60,17 @@ async def separate(file: UploadFile, prompt: str = Form(...)):
 
         stem_data.append({
             "name": stem_name,
-            "file_url": f"/downloads/{output_name}"
+            "file_url": {output_name}
         })
 
     return {"stems": stem_data}
 
+@app.get("/download/{filename}")
+def download_file(filename: str):
+    file_path = f"separated/{filename}"
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="audio/wav", filename=filename)
+    return {"error": "File not found"}
 
 """
 #TODO

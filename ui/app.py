@@ -1,9 +1,25 @@
 import streamlit as st
 import requests
-import base64
-import io
 
 API_URL = "http://localhost:8000"
+st.html("""
+    <style>
+        .stMainBlockContainer {
+            max-width:60rem;
+        }
+    </style>
+    """
+)
+st.markdown("""
+    <style>
+        /* Make the main content container wider */
+        .main .block-container {
+            max-width: 1200px;
+            padding-left: 3rem;
+            padding-right: 3rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 st.title("🎵 Stream & Play Separated Stems")
 
@@ -20,9 +36,35 @@ if uploaded_file and st.button("Separate"):
         if response.status_code == 200:
             stems = response.json()["stems"]
             for stem in stems:
-                b64 = stem["audio_base64"]
-                audio_bytes = base64.b64decode(b64)
-                st.audio(io.BytesIO(audio_bytes), format="audio/wav")
-                st.download_button(f"Download {stem['name']}.wav", audio_bytes, file_name=f"{stem['name']}.wav", mime="audio/wav")
+                name = stem["name"]
+                url, = stem["file_url"]
+
+                st.markdown(f"**{name.capitalize()}**")
+                st.audio(f"{API_URL}/downloads/{url}", format="audio/wav")
+
+                st.markdown(f"""
+                        <style>
+                        .download-btn {{
+                            display: inline-block;
+                            padding: 0.6em 1.2em;
+                            background-color: #6366F1;
+                            color: white !important;
+                            font-weight: 600;
+                            border: none;
+                            border-radius: 12px;
+                            text-decoration: none !important;
+                            font-size: 16px;
+                            transition: background-color 0.2s ease;
+                        }}
+                        .download-btn:hover {{
+                            background-color: #4F46E5;
+                            color: white;
+                        }}
+                        </style>
+
+                        <a href="{API_URL}/downloads/{url}" download="{name}.wav" class="download-btn">
+                            ⬇️ Download {name}.wav
+                        </a>
+                    """, unsafe_allow_html=True)
         else:
             st.error("Something went wrong.")
