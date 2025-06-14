@@ -1,4 +1,3 @@
-import torchaudio
 from transformers import pipeline
 import logging
 from demucs.demucs.pretrained import get_model
@@ -39,13 +38,11 @@ def interpret_prompt(prompt: str) -> list[str]:
            list[str]: e.g., ["vocals", "drums"]
     """
     logger.info(f"prompt: {prompt}")
-
     instruction = (
-        "You are a music AI system. Given a user request, return a list of stems "
-        "to extract. Valid stems are: vocals, drums, bass, other. "
-        f"Prompt: '{prompt}'\n"
-        "Return only a comma-separated list of valid stems from the prompt"
+        "From the following user request, extract only the valid stems (vocals, drums, bass, other). "
+        "Return them as a comma-separated list and nothing else."
     )
+
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -56,11 +53,7 @@ def interpret_prompt(prompt: str) -> list[str]:
                 ),
                 ChatCompletionUserMessageParam(
                     role="user",
-                    content=(
-                        "From the following user request, extract only the valid stems (vocals, drums, bass, other). "
-                        "Return them as a comma-separated list and nothing else.\n\n"
-                        "User request: separate vocals and drums"
-                    )
+                    content=f"{instruction}\n\nUser request: {prompt}"
                 )
             ],
             max_tokens=10,
@@ -78,16 +71,4 @@ def interpret_prompt(prompt: str) -> list[str]:
         logger.error(f"OpenAI error: {e}")
         return []
 
-"""
-
-    #only generates up to 10 tokens in new response
-    #this limits verbosity as we don't need long paragraphs, just a short stem list
-    #so 10 is safe upper limit for current scope, and can be increased if necessary
-    raw_stems = pipe(instruction, max_new_tokens=10)[0]["generated_text"]
-    logger.info(f"Model response: {raw_stems}")
-    valid_stems = [s.strip() for s in raw_stems.lower().split(",") if s.strip() in VALID_STEMS]
-
-    logger.info(f"Filtered stems: {valid_stems}")
-    #Passing anything else (like "guitar", "piano") will raise errors or produce silence. So filtering protects the system for 1st iteration level. Adjust this later
-    return valid_stems
-"""
+#TODO implement interpret_audio_edit() to accommodate requests like boost the vocals by 3dB”
