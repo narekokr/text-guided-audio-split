@@ -176,3 +176,4 @@ cython_debug/
 separated
 
 .idea/workspace.xml
+api_key.txt

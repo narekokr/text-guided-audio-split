@@ -8,22 +8,15 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
-api_key = "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"
-client = openai.OpenAI(api_key=api_key)
+with open("api_key.txt", "r") as file:
+    api_key = file.read().strip()
 
-#os.environ["OPENAI_API_KEY"]
+client = openai.OpenAI(api_key=api_key)
 
 model = get_model(name="mdx_extra_q")
 logger = logging.getLogger(__name__)
 VALID_STEMS = {"vocals", "drums", "bass", "other"}
 
-#pretrained model mdx_extra_q is always trained to output those 4 stems
-
-"""
-#Note:
-Input is natural language text and output that we want is also short text response, hence we need text2text task and flan-t5 is trained specifically for such instruction-following behavior
-"""
-# Load model once at module level
 pipe = pipeline("text2text-generation", model="google/flan-t5-large")
 
 
