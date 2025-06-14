@@ -2,10 +2,18 @@ import torchaudio
 from demucs.demucs.pretrained import get_model
 from demucs.demucs.apply import (apply_model)
 import torchaudio.transforms as T
-from llm_backend.interpreter import interpret_prompt
+from pathlib import Path
 
-def separate_audio(filepath: str, prompt: str):
+def separate_audio(filepath: str, selected_stems: list[str]):
     model = get_model(name="mdx_extra_q")
+
+    try:
+        torchaudio.set_audio_backend("sox_io")
+    except RuntimeError:
+        torchaudio.set_audio_backend("soundfile")
+
+    print("🧠 Resolving file:", Path(filepath).resolve())
+    assert Path(filepath).exists(), f"File not found: {filepath}"
     wav, sr = torchaudio.load(filepath)
 
     # Ensure the audio is batched: shape [1, channels, time]
@@ -26,12 +34,12 @@ def separate_audio(filepath: str, prompt: str):
         wav = resampler(wav)
 
     # Interpret the prompt (e.g., "vocals and drums") -> ['vocals', 'drums']
-    selected_stems = interpret_prompt(prompt)
+    #selected_stems = interpret_prompt(prompt)
 
     if not selected_stems:
         raise ValueError("No valid stems found in prompt. Please specify vocals, drums, bass, or other.")
 
-    # Apply Demucs separation
+    #Demucs separation
     separated = apply_model(model, wav, device="cpu")  # Shape: [1, 4, 2, T]
     print(f"Model output shape: {separated.shape}") #1, 4, 2, N if this is not hte case we might need to switch to model = get_model(name="htdemucs")  # known 4-stem model
 
