@@ -3,9 +3,21 @@ from demucs.demucs.pretrained import get_model
 from demucs.demucs.apply import (apply_model)
 import torchaudio.transforms as T
 from llm_backend.interpreter import interpret_prompt
+from pathlib import Path
 
 def separate_audio(filepath: str, prompt: str):
     model = get_model(name="mdx_extra_q")
+
+    try:
+        torchaudio.set_audio_backend("sox_io")
+    except RuntimeError:
+        torchaudio.set_audio_backend("soundfile")
+
+    print("🧠 Resolving file:", Path(filepath).resolve())
+    assert Path(filepath).exists(), f"File not found: {filepath}"
+    # Now load the file
+    wav, sr = torchaudio.load(filepath)
+
     wav, sr = torchaudio.load(filepath)
 
     # Ensure the audio is batched: shape [1, channels, time]
