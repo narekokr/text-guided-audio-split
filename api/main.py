@@ -1,6 +1,9 @@
 import uuid
 import torchaudio
 from fastapi import FastAPI
+from pydub import AudioSegment
+from pydub.silence import detect_silence
+
 from audio_utils.separator import separate_audio
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -78,6 +81,16 @@ def chat(request: ChatRequest):
             outname = f"{base}_{stem_name}_{uid}.wav"
             outpath = f"separated/{outname}"
             torchaudio.save(outpath, stem_tensor, 44100)
+            audio = AudioSegment.from_file(outpath)
+
+            # Detect silent ranges (start_ms, end_ms) where silence lasts longer than 1000 ms and is below -40 dBFS
+            silent_ranges = detect_silence(audio, min_silence_len=1000, silence_thresh=-40)
+
+            # Check if the entire audio is silent
+            is_fully_silent = sum(end - start for start, end in silent_ranges) >= len(audio)
+            if is_fully_silent:
+                continue
+
             url = f"/downloads/{outname}"
             separated.append({"name": stem_name, "file_url": url})
 
