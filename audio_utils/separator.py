@@ -12,7 +12,7 @@ def separate_audio(filepath: str, selected_stems: list[str]):
     except RuntimeError:
         torchaudio.set_audio_backend("soundfile")
 
-    print("🧠 Resolving file:", Path(filepath).resolve())
+    print("Resolving file:", Path(filepath).resolve())
     assert Path(filepath).exists(), f"File not found: {filepath}"
     wav, sr = torchaudio.load(filepath)
 
@@ -33,15 +33,13 @@ def separate_audio(filepath: str, selected_stems: list[str]):
         resampler = T.Resample(orig_freq=sr, new_freq=44100)
         wav = resampler(wav)
 
-    # Interpret the prompt (e.g., "vocals and drums") -> ['vocals', 'drums']
-    #selected_stems = interpret_prompt(prompt)
 
     if not selected_stems:
         raise ValueError("No valid stems found in prompt. Please specify vocals, drums, bass, or other.")
 
     #Demucs separation
     separated = apply_model(model, wav, device="cpu")  # Shape: [1, 4, 2, T]
-    print(f"Model output shape: {separated.shape}") #1, 4, 2, N if this is not hte case we might need to switch to model = get_model(name="htdemucs")  # known 4-stem model
+    print(f"Model output shape: {separated.shape}")
 
     # Remove batch dim: shape becomes [4, 2, T]
     separated = separated[0]
