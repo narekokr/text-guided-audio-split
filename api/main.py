@@ -3,7 +3,6 @@ import torchaudio
 from fastapi import FastAPI
 from pydub import AudioSegment
 from pydub.silence import detect_silence
-
 from audio_utils.separator import separate_audio
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -12,10 +11,10 @@ from llm_backend.chat_manager import session_manager
 import openai
 from openai.types.chat import ChatCompletionUserMessageParam, ChatCompletionAssistantMessageParam, \
     ChatCompletionSystemMessageParam
-
 from llm_backend.interpreter import interpret_prompt
-from models.ChatRequest import ChatRequest
+from models.chat_request import ChatRequest
 from api.upload import router as upload_router
+from models.reset_request import ResetRequest
 
 app = FastAPI()
 
@@ -67,6 +66,7 @@ def chat(request: ChatRequest):
     selected_stems = interpret_prompt(request.message)
     audio_path = session_manager.get_file(request.session_id)
     separated = []
+    silent_stems = []
 
     if audio_path and selected_stems:
         outputs = separate_audio(audio_path, selected_stems)
@@ -78,10 +78,10 @@ def chat(request: ChatRequest):
 
             uid = uuid.uuid4().hex[:6]
             base = os.path.splitext(os.path.basename(audio_path))[0]
-            outname = f"{base}_{stem_name}_{uid}.wav"
-            outpath = f"separated/{outname}"
-            torchaudio.save(outpath, stem_tensor, 44100)
-            audio = AudioSegment.from_file(outpath)
+            output_name = f"{base}_{stem_name}_{uid}.wav"
+            output_path = f"separated/{output_name}"
+            torchaudio.save(output_path, stem_tensor, 44100) #this
+            audio = AudioSegment.from_file(output_path, format="wav")
 
             # Detect silent ranges (start_ms, end_ms) where silence lasts longer than 1000 ms and is below -40 dBFS
             silent_ranges = detect_silence(audio, min_silence_len=1000, silence_thresh=-40)
@@ -89,12 +89,14 @@ def chat(request: ChatRequest):
             # Check if the entire audio is silent
             is_fully_silent = sum(end - start for start, end in silent_ranges) >= len(audio)
             if is_fully_silent:
-                continue
-
-            url = f"/downloads/{outname}"
-            separated.append({"name": stem_name, "file_url": url})
+                silent_stems.append(stem_name)
+            else:
+                url = f"/downloads/{output_name}"
+                separated.append({"name": stem_name, "file_url": url})
 
         reply = f"✅ Separated stems: {', '.join(s['name'] for s in separated)}. You can download them now."
+        if silent_stems:
+            reply += f" ℹ️ Note: The following stems were detected as silent and not included: {', '.join(silent_stems)}."
     else:
         chat_response = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -111,10 +113,13 @@ def chat(request: ChatRequest):
     }
     return response
 
+@app.post("/reset")
+def reset_session(request: ResetRequest):
+    session_manager.reset_session(request.session_id)
+    return {"message": f"Session {request.session_id} has been cleared."}
 
 """
-#TODO
+TODO
 GET /status — for long jobs or async audio processing or reporting what has been separated or downloaded
 GET /stems/{id} — to retrieve previously generated files
-/reset	Clear session history
 """

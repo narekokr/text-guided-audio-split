@@ -5,7 +5,9 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
-api_key = "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"
+with open("api_key.txt", "r") as file:
+    api_key = file.read().strip()
+
 client = OpenAI(api_key=api_key)
 
 response = client.chat.completions.create(

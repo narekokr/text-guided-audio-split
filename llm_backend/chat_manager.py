@@ -29,4 +29,8 @@ class SessionManager:
     def get_stem_file(self, session_id: str, stem: str):
         return self.sessions[session_id]["stems"].get(stem)
 
+    def reset_session(self, session_id: str):
+        self.sessions.pop(session_id, None)
+        #TODO remove uploaded file too from the database once db integratoin is done
+
 session_manager = SessionManager()
