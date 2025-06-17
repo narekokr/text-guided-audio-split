@@ -65,12 +65,6 @@ def eval_track(references, estimates, win, hop, compute_sdr=True):
 
 
 def evaluate(solver, compute_sdr=False):
-    """
-    Evaluate model using museval.
-    compute_sdr=False means using only the MDX definition of the SDR, which
-    is much faster to evaluate.
-    """
-
     args = solver.args
 
     output_dir = solver.folder / "results"
@@ -78,97 +72,50 @@ def evaluate(solver, compute_sdr=False):
     json_folder = solver.folder / "results/test"
     json_folder.mkdir(exist_ok=True, parents=True)
 
-    # we load tracks from the original musdb set
-    if args.test.nonhq is None:
-        test_set = musdb.DB(args.dset.musdb, subsets=["test"], is_wav=True)
-    else:
-        test_set = musdb.DB(args.test.nonhq, subsets=["test"], is_wav=False)
-    src_rate = args.dset.musdb_samplerate
-
-    eval_device = 'cpu'
+    # -- CHANGE: use your PT files instead of MUSDB --
+    pt_dir = Path(args.dset.valid_pt_dir)  # or args.dset.valid_dir etc
+    pt_files = sorted(pt_dir.glob("*.pt"))
 
     model = solver.model
     win = int(1. * model.samplerate)
     hop = int(1. * model.samplerate)
+    eval_device = solver.device if hasattr(solver, "device") else "cpu"
 
-    indexes = range(distrib.rank, len(test_set), distrib.world_size)
-    indexes = LogProgress(logger, indexes, updates=args.misc.num_prints,
-                          name='Eval')
-    pendings = []
+    tracks = {}
+    for pt_file in pt_files:
+        data = torch.load(pt_file, map_location=eval_device)
+        mix = data["mix"]                # shape: [C, L] or [1, C, L]
+        references = data["stem"]        # shape: [S, C, L] or [C, L]
+        conditioning = data["clap_embedding"]  # shape: [S, D] or [D]
 
-    pool = futures.ProcessPoolExecutor if args.test.workers else DummyPoolExecutor
-    with pool(args.test.workers) as pool:
-        for index in indexes:
-            track = test_set.tracks[index]
+        # --- Shape sanity checks ---
+        if mix.dim() == 2:
+            mix = mix.unsqueeze(0)  # [1, C, L]
+        if conditioning.dim() == 1:
+            conditioning = conditioning.unsqueeze(0)  # [1, D] (if single stem)
+        # Move to device
+        mix = mix.to(eval_device)
+        references = references.to(eval_device)
+        conditioning = conditioning.to(eval_device)
 
-            mix = th.from_numpy(track.audio).t().float()
-            if mix.dim() == 1:
-                mix = mix[None]
-            mix = mix.to(solver.device)
-            ref = mix.mean(dim=0)  # mono mixture
-            mix = (mix - ref.mean()) / ref.std()
-            mix = convert_audio(mix, src_rate, model.samplerate, model.audio_channels)
-            estimates = apply_model(model, mix[None],
-                                    shifts=args.test.shifts, split=args.test.split,
-                                    overlap=args.test.overlap)[0]
-            estimates = estimates * ref.std() + ref.mean()
-            estimates = estimates.to(eval_device)
+        # --- Run model ---
+        with torch.no_grad():
+            estimates = apply_model(model, mix, conditioning=conditioning)[0]  # [S, C, L] (check!)
 
-            references = th.stack(
-                [th.from_numpy(track.targets[name].audio).t() for name in model.sources])
-            if references.dim() == 2:
-                references = references[:, None]
-            references = references.to(eval_device)
-            references = convert_audio(references, src_rate,
-                                       model.samplerate, model.audio_channels)
-            if args.test.save:
-                folder = solver.folder / "wav" / track.name
-                folder.mkdir(exist_ok=True, parents=True)
-                for name, estimate in zip(model.sources, estimates):
-                    save_audio(estimate.cpu(), folder / (name + ".mp3"), model.samplerate)
+        # --- Compute metrics ---
+        # You may need to match shape [S, C, L] for references and estimates
+        if references.dim() == 2:
+            references = references.unsqueeze(0)
+        if estimates.dim() == 2:
+            estimates = estimates.unsqueeze(0)
+        win_len = win
+        hop_len = hop
+        # SDR calculation
+        _, nsdrs = eval_track(references, estimates, win=win_len, hop=hop_len, compute_sdr=compute_sdr)
+        # Store result
+        tracks[pt_file.stem] = {f"nsdr_{i}": float(n) for i, n in enumerate(nsdrs)}
 
-            pendings.append((track.name, pool.submit(
-                eval_track, references, estimates, win=win, hop=hop, compute_sdr=compute_sdr)))
-
-        pendings = LogProgress(logger, pendings, updates=args.misc.num_prints,
-                               name='Eval (BSS)')
-        tracks = {}
-        for track_name, pending in pendings:
-            pending = pending.result()
-            scores, nsdrs = pending
-            tracks[track_name] = {}
-            for idx, target in enumerate(model.sources):
-                tracks[track_name][target] = {'nsdr': [float(nsdrs[idx])]}
-            if scores is not None:
-                (sdr, isr, sir, sar) = scores
-                for idx, target in enumerate(model.sources):
-                    values = {
-                        "SDR": sdr[idx].tolist(),
-                        "SIR": sir[idx].tolist(),
-                        "ISR": isr[idx].tolist(),
-                        "SAR": sar[idx].tolist()
-                    }
-                    tracks[track_name][target].update(values)
-
-        all_tracks = {}
-        for src in range(distrib.world_size):
-            all_tracks.update(distrib.share(tracks, src))
-
-        result = {}
-        metric_names = next(iter(all_tracks.values()))[model.sources[0]]
-        for metric_name in metric_names:
-            avg = 0
-            avg_of_medians = 0
-            for source in model.sources:
-                medians = [
-                    np.nanmedian(all_tracks[track][source][metric_name])
-                    for track in all_tracks.keys()]
-                mean = np.mean(medians)
-                median = np.median(medians)
-                result[metric_name.lower() + "_" + source] = mean
-                result[metric_name.lower() + "_med" + "_" + source] = median
-                avg += mean / len(model.sources)
-                avg_of_medians += median / len(model.sources)
-            result[metric_name.lower()] = avg
-            result[metric_name.lower() + "_med"] = avg_of_medians
-        return result
+    # -- Aggregate results (mean NSDR over all stems/tracks) --
+    all_nsdrs = [val for t in tracks.values() for val in t.values()]
+    result = {"nsdr_mean": float(np.mean(all_nsdrs))}
+    return result

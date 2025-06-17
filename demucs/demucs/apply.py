@@ -149,7 +149,8 @@ def apply_model(model: tp.Union[BagOfModels, Model],
                 num_workers: int = 0, segment: tp.Optional[float] = None,
                 pool=None, lock=None,
                 callback: tp.Optional[tp.Callable[[dict], None]] = None,
-                callback_arg: tp.Optional[dict] = None) -> th.Tensor:
+                callback_arg: tp.Optional[dict] = None,
+                conditioning: tp.Optional[th.Tensor] = None) -> th.Tensor:
     """
     Apply model to a given mixture.
 
@@ -212,7 +213,7 @@ def apply_model(model: tp.Union[BagOfModels, Model],
             original_model_device = next(iter(sub_model.parameters())).device
             sub_model.to(device)
 
-            res = apply_model(sub_model, mix, **kwargs, callback_arg=callback_arg)
+            res = apply_model(sub_model, mix, **kwargs, callback_arg=callback_arg, conditioning=conditioning)
             out = res
             sub_model.to(original_model_device)
             for k, inst_weight in enumerate(model_weights):
@@ -247,7 +248,7 @@ def apply_model(model: tp.Union[BagOfModels, Model],
                     (lambda d, i=shift_idx: callback(_replace_dict(d, ("shift_idx", i)))
                      if callback else None)
                 )
-            res = apply_model(model, shifted, **kwargs, callback_arg=callback_arg)
+            res = apply_model(model, shifted, **kwargs, callback_arg=callback_arg, conditioning=conditioning)
             shifted_out = res
             out += shifted_out[..., max_shift - offset:]
         out /= shifts
@@ -277,9 +278,10 @@ def apply_model(model: tp.Union[BagOfModels, Model],
         for offset in offsets:
             chunk = TensorChunk(mix, offset, segment_length)
             future = pool.submit(apply_model, model, chunk, **kwargs, callback_arg=callback_arg,
-                                 callback=(lambda d, i=offset:
-                                           callback(_replace_dict(d, ("segment_offset", i)))
-                                           if callback else None))
+                     conditioning=conditioning,
+                     callback=(lambda d, i=offset:
+                               callback(_replace_dict(d, ("segment_offset", i)))
+                               if callback else None))
             futures.append((future, offset))
             offset += segment_length
         if progress:
@@ -313,7 +315,10 @@ def apply_model(model: tp.Union[BagOfModels, Model],
             if callback is not None:
                 callback(_replace_dict(callback_arg, ("state", "start")))  # type: ignore
         with th.no_grad():
-            out = model(padded_mix)
+            if conditioning is not None:
+                out = model(padded_mix, conditioning)
+            else:
+                out = model(padded_mix)
         with lock:
             if callback is not None:
                 callback(_replace_dict(callback_arg, ("state", "end")))  # type: ignore

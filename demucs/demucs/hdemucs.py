@@ -1,3 +1,4 @@
+
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
@@ -18,6 +19,7 @@ from torch.nn import functional as F
 from .demucs import DConv, rescale_module
 from .states import capture_init
 from .spec import spectro, ispectro
+from .adaln import AdaLN
 
 
 def pad1d(x: torch.Tensor, paddings: tp.Tuple[int, int], mode: str = 'constant', value: float = 0.):
@@ -69,7 +71,7 @@ class ScaledEmbedding(nn.Module):
 class HEncLayer(nn.Module):
     def __init__(self, chin, chout, kernel_size=8, stride=4, norm_groups=1, empty=False,
                  freq=True, dconv=True, norm=True, context=0, dconv_kw={}, pad=True,
-                 rewrite=True):
+                 rewrite=True, condition_dim=512):
         """Encoder layer. This used both by the time and the frequency branch.
 
         Args:
@@ -110,17 +112,26 @@ class HEncLayer(nn.Module):
         self.conv = klass(chin, chout, kernel_size, stride, pad)
         if self.empty:
             return
-        self.norm1 = norm_fn(chout)
+        
+        self.use_adaln = True  # or make it configurable
+        if self.use_adaln:
+            self.norm1 = AdaLN(chout, condition_dim)
+        else:
+            self.norm1 = norm_fn(chout)
+
         self.rewrite = None
         if rewrite:
             self.rewrite = klass(chout, 2 * chout, 1 + 2 * context, 1, context)
-            self.norm2 = norm_fn(2 * chout)
+            if self.use_adaln:
+                self.norm2 = AdaLN(2 * chout, condition_dim)
+            else:
+                self.norm2 = norm_fn(2 * chout)
 
         self.dconv = None
         if dconv:
             self.dconv = DConv(chout, **dconv_kw)
 
-    def forward(self, x, inject=None):
+    def forward(self, x, inject=None, cond=None):
         """
         `inject` is used to inject the result from the time branch into the frequency branch,
         when both have the same stride.
@@ -141,7 +152,13 @@ class HEncLayer(nn.Module):
             if inject.dim() == 3 and y.dim() == 4:
                 inject = inject[:, :, None]
             y = y + inject
-        y = F.gelu(self.norm1(y))
+        
+        if self.use_adaln:
+            y = self.norm1(y, cond)  
+        else:
+            y = self.norm1(y)
+        y = F.gelu(y)
+
         if self.dconv:
             if self.freq:
                 B, C, Fr, T = y.shape
@@ -149,8 +166,12 @@ class HEncLayer(nn.Module):
             y = self.dconv(y)
             if self.freq:
                 y = y.view(B, Fr, C, T).permute(0, 2, 1, 3)
+        
         if self.rewrite:
-            z = self.norm2(self.rewrite(y))
+            if self.use_adaln:
+                z = self.norm2(self.rewrite(y), cond)
+            else:
+                z = self.norm2(self.rewrite(y))
             z = F.glu(z, dim=1)
         else:
             z = y
@@ -256,7 +277,7 @@ class MultiWrap(nn.Module):
 class HDecLayer(nn.Module):
     def __init__(self, chin, chout, last=False, kernel_size=8, stride=4, norm_groups=1, empty=False,
                  freq=True, dconv=True, norm=True, context=1, dconv_kw={}, pad=True,
-                 context_freq=True, rewrite=True):
+                 context_freq=True, rewrite=True, condition_dim=512):
         """
         Same as HEncLayer but for decoder. See `HEncLayer` for documentation.
         """
@@ -285,7 +306,13 @@ class HDecLayer(nn.Module):
             klass = nn.Conv2d
             klass_tr = nn.ConvTranspose2d
         self.conv_tr = klass_tr(chin, chout, kernel_size, stride)
-        self.norm2 = norm_fn(chout)
+        
+        self.use_adaln = True  # Toggle AdaLN conditioning
+        if self.use_adaln:
+            self.norm2 = AdaLN(chout, condition_dim)
+        else:
+            self.norm2 = norm_fn(chout)
+
         if self.empty:
             return
         self.rewrite = None
@@ -295,22 +322,30 @@ class HDecLayer(nn.Module):
             else:
                 self.rewrite = klass(chin, 2 * chin, [1, 1 + 2 * context], 1,
                                      [0, context])
-            self.norm1 = norm_fn(2 * chin)
+            if self.use_adaln:
+                self.norm1 = AdaLN(2 * chin, condition_dim)
+            else:
+                self.norm1 = norm_fn(2 * chin)
 
         self.dconv = None
         if dconv:
             self.dconv = DConv(chin, **dconv_kw)
 
-    def forward(self, x, skip, length):
+    def forward(self, x, skip, length, cond=None):
+        if cond is not None and cond.dim() > 2:
+            cond = cond.view(cond.shape[0], -1)
         if self.freq and x.dim() == 3:
             B, C, T = x.shape
-            x = x.view(B, self.chin, -1, T)
+            x = x.view(B, C, -1, T)
 
         if not self.empty:
             x = x + skip
 
             if self.rewrite:
-                y = F.glu(self.norm1(self.rewrite(x)), dim=1)
+                if self.use_adaln:
+                    y = F.glu(self.norm1(self.rewrite(x), cond), dim=1)
+                else:
+                    y = F.glu(self.norm1(self.rewrite(x)), dim=1)
             else:
                 y = x
             if self.dconv:
@@ -323,9 +358,12 @@ class HDecLayer(nn.Module):
         else:
             y = x
             assert skip is None
-        z = self.norm2(self.conv_tr(y))
+        if self.use_adaln:
+            z = self.norm2(self.conv_tr(y), cond)
+        else:
+            z = self.norm2(self.conv_tr(y))
         if self.freq:
-            if self.pad:
+            if self.pad > 0:
                 z = z[..., self.pad:-self.pad, :]
         else:
             z = z[..., self.pad:self.pad + length]
@@ -483,10 +521,23 @@ class HDemucs(nn.Module):
             self.tencoder = nn.ModuleList()
             self.tdecoder = nn.ModuleList()
 
+        # === CLAP conditioning ===
+        # Project from CLAP 512D → desired audio channels (match encoder)
+        cond_channels = 64  # Adjust this as needed
+        self.cond_proj = nn.Sequential(
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, cond_channels),
+        )
+        # =========================
+
         chin = audio_channels
         chin_z = chin  # number of channels for the freq branch
         if self.cac:
             chin_z *= 2
+        
+        chin_z += cond_channels  # Always reserve room for condition projection
+        
         chout = channels_time or channels
         chout_z = channels
         freqs = nfft // 2
@@ -541,7 +592,8 @@ class HDemucs(nn.Module):
             if last_freq:
                 chout_z = max(chout, chout_z)
                 chout = chout_z
-
+            
+            # Encoder
             enc = HEncLayer(chin_z, chout_z,
                             dconv=dconv_mode & 1, context=context_enc, **kw)
             if hybrid and freq:
@@ -557,6 +609,8 @@ class HDemucs(nn.Module):
                 chin_z = chin
                 if self.cac:
                     chin_z *= 2
+
+            # Decoder        
             dec = HDecLayer(chout_z, chin_z, dconv=dconv_mode & 2,
                             last=index == 0, context=context, **kw_dec)
             if multi:
@@ -686,7 +740,7 @@ class HDemucs(nn.Module):
         assert list(out.shape) == [B, S, C, Fq, T]
         return out.to(init)
 
-    def forward(self, mix):
+    def forward(self, mix, cond=None):
         x = mix
         length = x.shape[-1]
 
@@ -695,6 +749,12 @@ class HDemucs(nn.Module):
         x = mag
 
         B, C, Fq, T = x.shape
+
+        if cond is not None:
+            cond_feat = self.cond_proj(cond)        # [B, chin_z]
+            cond_feat = cond_feat.view(B, -1, 1, 1)  # Make it [B, C, 1, 1]
+            cond_feat = cond_feat.expand(-1, -1, Fq, T)   # Broadcast to [B, C, F, T]
+            x = torch.cat([x, cond_feat], dim=1)         # Now input is [B, C + cond_channels, F, T]
 
         # unlike previous Demucs, we always normalize because it is easier.
         mean = x.mean(dim=(1, 2, 3), keepdim=True)
@@ -729,7 +789,7 @@ class HDemucs(nn.Module):
                     # tenc contains just the first conv., so that now time and freq.
                     # branches have the same shape and can be merged.
                     inject = xt
-            x = encode(x, inject)
+            x = encode(x, inject, cond)
             if idx == 0 and self.freq_emb is not None:
                 # add frequency embedding to allow for non equivariant convolutions
                 # over the frequency axis.
@@ -746,7 +806,7 @@ class HDemucs(nn.Module):
 
         for idx, decode in enumerate(self.decoder):
             skip = saved.pop(-1)
-            x, pre = decode(x, skip, lengths.pop(-1))
+            x, pre = decode(x, skip, lengths.pop(-1), cond=cond)
             # `pre` contains the output just before final transposed convolution,
             # which is used when the freq. and time branch separate.
 
@@ -758,10 +818,10 @@ class HDemucs(nn.Module):
                 if tdec.empty:
                     assert pre.shape[2] == 1, pre.shape
                     pre = pre[:, :, 0]
-                    xt, _ = tdec(pre, None, length_t)
+                    xt, _ = tdec(pre, None, length_t, cond=cond)
                 else:
                     skip = saved_t.pop(-1)
-                    xt, _ = tdec(xt, skip, length_t)
+                    xt, _ = tdec(xt, skip, length_t, cond=cond)
 
         # Let's make sure we used all stored skip connections.
         assert len(saved) == 0

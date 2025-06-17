@@ -70,7 +70,36 @@ def get_model(args):
     kw = OmegaConf.to_container(getattr(args, args.model), resolve=True)
     model = klass(**extra, **kw)
     return model
+import torch
+from torch.utils.data import Dataset, DataLoader
 
+class StemCLAPDataset(Dataset):
+    def __init__(self, pt_files):
+        self.pt_files = pt_files
+
+    def __len__(self):
+        return len(self.pt_files)
+
+    def __getitem__(self, idx):
+        data = torch.load(self.pt_files[idx], map_location="cpu")
+        mix = data['mix']      # [C, T]
+        stems = data['stem']  # [S, C, T]
+        clap = data['embedding']    # [S, 512] (or whatever dim)
+        return mix, stems, clap
+
+def collate_stem_clap(batch):
+    mixes, stems_list, claps = zip(*batch)
+    max_length = max(mix.shape[-1] for mix in mixes)
+    padded_mixes = []
+    padded_stems = []
+    for mix, stems in zip(mixes, stems_list):
+        pad_amt = max_length - mix.shape[-1]
+        padded_mixes.append(torch.nn.functional.pad(mix, (0, pad_amt)))
+        padded_stems.append(torch.nn.functional.pad(stems, (0, pad_amt)))
+    padded_mixes = torch.stack(padded_mixes)    # [B, C, T]
+    padded_stems = torch.stack(padded_stems)    # [B, S, C, T]
+    claps = torch.stack(claps)                  # [B, S, E]
+    return padded_mixes, padded_stems, claps
 
 def get_optimizer(model, args):
     seen_params = set()
@@ -107,45 +136,17 @@ def get_optimizer(model, args):
 
 
 def get_datasets(args):
-    if args.dset.backend:
-        torchaudio.set_audio_backend(args.dset.backend)
-    if args.dset.use_musdb:
-        train_set, valid_set = get_musdb_wav_datasets(args.dset)
-    else:
-        train_set, valid_set = [], []
-    if args.dset.wav:
-        extra_train_set, extra_valid_set = get_wav_datasets(args.dset)
-        if len(args.dset.sources) <= 4:
-            train_set = ConcatDataset([train_set, extra_train_set])
-            valid_set = ConcatDataset([valid_set, extra_valid_set])
-        else:
-            train_set = extra_train_set
-            valid_set = extra_valid_set
-
-    if args.dset.wav2:
-        extra_train_set, extra_valid_set = get_wav_datasets(args.dset, "wav2")
-        weight = args.dset.wav2_weight
-        if weight is not None:
-            b = len(train_set)
-            e = len(extra_train_set)
-            reps = max(1, round(e / b * (1 / weight - 1)))
-        else:
-            reps = 1
-        train_set = ConcatDataset([train_set] * reps + [extra_train_set])
-        if args.dset.wav2_valid:
-            if weight is not None:
-                b = len(valid_set)
-                n_kept = int(round(weight * b / (1 - weight)))
-                valid_set = ConcatDataset(
-                    [valid_set, random_subset(extra_valid_set, n_kept)]
-                )
-            else:
-                valid_set = ConcatDataset([valid_set, extra_valid_set])
-    if args.dset.valid_samples is not None:
-        valid_set = random_subset(valid_set, args.dset.valid_samples)
-    assert len(train_set)
-    assert len(valid_set)
-    return train_set, valid_set
+    """
+    Instead of MUSDB or other datasets, we use our own pt files.
+    Update the paths here or pass them in args!
+    """
+    import glob
+    # Example: get .pt files from directories specified in args
+    train_pt_files = sorted(glob.glob(args.train_pt_dir + '/*.pt'))
+    valid_pt_files = sorted(glob.glob(args.valid_pt_dir + '/*.pt'))
+    assert len(train_pt_files), f"No training .pt files found in {args.train_pt_dir}"
+    assert len(valid_pt_files), f"No validation .pt files found in {args.valid_pt_dir}"
+    return train_pt_files, valid_pt_files
 
 
 def get_solver(args, model_only=False):
@@ -162,11 +163,9 @@ def get_solver(args, model_only=False):
             logger.info('Field: %.1f ms', field / args.dset.samplerate * 1000)
         sys.exit(0)
 
-    # torch also initialize cuda seed if available
     if torch.cuda.is_available():
         model.cuda()
 
-    # optimizer
     optimizer = get_optimizer(model, args)
 
     assert args.batch_size % distrib.world_size == 0
@@ -175,32 +174,29 @@ def get_solver(args, model_only=False):
     if model_only:
         return Solver(None, model, optimizer, args)
 
-    train_set, valid_set = get_datasets(args)
+    # === Use our custom Dataset and DataLoader ===
+    train_pt_files, valid_pt_files = get_datasets(args)
 
-    if args.augment.repitch.proba:
-        vocals = []
-        if 'vocals' in args.dset.sources:
-            vocals.append(args.dset.sources.index('vocals'))
-        else:
-            logger.warning('No vocal source found')
-        if args.augment.repitch.proba:
-            train_set = RepitchedWrapper(train_set, vocals=vocals, **args.augment.repitch)
+    train_dataset = StemCLAPDataset(train_pt_files)
+    valid_dataset = StemCLAPDataset(valid_pt_files)
 
-    logger.info("train/valid set size: %d %d", len(train_set), len(valid_set))
-    train_loader = distrib.loader(
-        train_set, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.misc.num_workers, drop_last=True)
-    if args.dset.full_cv:
-        valid_loader = distrib.loader(
-            valid_set, batch_size=1, shuffle=False,
-            num_workers=args.misc.num_workers)
-    else:
-        valid_loader = distrib.loader(
-            valid_set, batch_size=args.batch_size, shuffle=False,
-            num_workers=args.misc.num_workers, drop_last=True)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.misc.num_workers,
+        collate_fn=collate_stem_clap,
+        drop_last=True,
+    )
+    valid_loader = DataLoader(
+        valid_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.misc.num_workers,
+        collate_fn=collate_stem_clap,
+        drop_last=True,
+    )
     loaders = {"train": train_loader, "valid": valid_loader}
-
-    # Construct Solver
     return Solver(loaders, model, optimizer, args)
 
 

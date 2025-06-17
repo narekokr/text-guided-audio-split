@@ -33,6 +33,7 @@ from .apply import apply_model, _replace_dict
 from .audio import AudioFile, convert_audio, save_audio
 from .pretrained import get_model, _parse_remote_files, REMOTE_ROOT
 from .repo import RemoteRepo, LocalRepo, ModelOnlyRepo, BagOnlyRepo
+from laion_clap import CLAP_Module
 
 
 class LoadAudioError(Exception):
@@ -63,7 +64,9 @@ class Separator:
         jobs: int = 0,
         progress: bool = False,
         callback: Optional[Callable[[dict], None]] = None,
+        prompt: Optional[str] = None,               # NEW: Accept prompt here
         callback_arg: Optional[dict] = None,
+        clap_ckpt_path: '/home/akyol/clap-conditioned-source-separation-main/models/music_speech_audioset_epoch_15_esc_89.98.pt'
     ):
         """
         `class Separator`
@@ -116,10 +119,16 @@ class Separator:
         """
         self._name = model
         self._repo = repo
+        self.prompt = prompt
         self._load_model()
         self.update_parameter(device=device, shifts=shifts, overlap=overlap, split=split,
                               segment=segment, jobs=jobs, progress=progress, callback=callback,
                               callback_arg=callback_arg)
+        
+        self.clap_model = CLAP_Module(enable_fusion=False, amodel='HTSAT-base')
+        if clap_ckpt_path:
+            self.clap_model.load_ckpt(clap_ckpt_path)
+        self.clap_model.eval()
 
     def update_parameter(
         self,
@@ -238,9 +247,24 @@ class Separator:
             )
         return wav
 
-    def separate_tensor(
-        self, wav: th.Tensor, sr: Optional[int] = None
-    ) -> Tuple[th.Tensor, Dict[str, th.Tensor]]:
+    def get_conditioning(self, prompt: Optional[str] = None, device=None):
+        """
+        Computes and returns the CLAP embedding for the given prompt (or self.prompt).
+        """
+        # If no prompt is passed, use self.prompt
+        prompt = prompt if prompt is not None else self.prompt
+        if prompt is not None and self.clap_model is not None:
+            with torch.no_grad():
+                cond = self.clap_model.get_text_embedding([prompt], use_tensor=True)
+            if device is not None:
+                cond = cond.to(device)
+            return cond
+        else:
+            return None
+
+    def separate_tensor(self, wav: th.Tensor, sr: Optional[int] = None, 
+        prompt: str = None,
+        conditioning: Optional[th.Tensor] = None,): 
         """
         Separate a loaded tensor.
 
@@ -267,6 +291,12 @@ class Separator:
         ref = wav.mean(0)
         wav -= ref.mean()
         wav /= ref.std() + 1e-8
+
+        if conditioning is not None:
+            cond = conditioning.to(wav.device)
+        else:
+            cond = self.get_conditioning(prompt, device=wav.device)
+
         out = apply_model(
                 self._model,
                 wav[None],
@@ -274,6 +304,7 @@ class Separator:
                 shifts=self._shifts,
                 split=self._split,
                 overlap=self._overlap,
+                conditioning=cond,
                 device=self._device,
                 num_workers=self._jobs,
                 callback=self._callback,
@@ -290,21 +321,12 @@ class Separator:
         wav += ref.mean()
         return (wav, dict(zip(self._model.sources, out[0])))
 
-    def separate_audio_file(self, file: Path):
-        """
-        Separate an audio file. The method will automatically read the file.
-
-        Parameters
-        ----------
-        wav: Path of the file to be separated.
-
-        Returns
-        -------
-        A tuple, whose first element is the original wave and second element is a dict, whose keys
-        are the name of stems and values are separated waves. The original wave will have already
-        been resampled.
-        """
-        return self.separate_tensor(self._load_audio(file), self.samplerate)
+    def separate_audio_file(
+        self, file: Path, 
+        prompt: str = None,
+        conditioning: Optional[th.Tensor] = None,
+    ):
+        return self.separate_tensor(self._load_audio(file), self.samplerate, prompt=prompt, conditioning=conditioning)
 
     @property
     def samplerate(self):
@@ -363,6 +385,7 @@ if __name__ == "__main__":
         segment=args.segment,
         jobs=args.jobs,
         callback=print
+        prompt=args.prompt,
     )
     out = args.out / args.name
     out.mkdir(parents=True, exist_ok=True)

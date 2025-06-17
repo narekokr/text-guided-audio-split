@@ -19,6 +19,10 @@ from .pretrained import add_model_flags, ModelLoadingError
 
 
 def get_parser():
+   
+    parser.add_argument("--clap-embedding", type=Path, required=True,
+    help="Path to a .pt or .npy file containing the CLAP embedding for conditioning.")
+
     parser = argparse.ArgumentParser("demucs.separate",
                                      description="Separate the sources for the given tracks")
     parser.add_argument("tracks", nargs='*', type=Path, default=[], help='Path to tracks')
@@ -113,6 +117,13 @@ def main(opts=None):
         print("error: the following arguments are required: tracks", file=sys.stderr)
         sys.exit(1)
 
+    if args.clap_embedding.suffix == ".pt":
+        clap_embedding = torch.load(args.clap_embedding)
+    elif args.clap_embedding.suffix == ".npy":
+        clap_embedding = torch.from_numpy(np.load(args.clap_embedding))
+    else:
+        raise ValueError("Unsupported embedding file type: must be .pt or .npy")
+
     try:
         separator = Separator(model=args.name,
                               repo=args.repo,
@@ -122,7 +133,9 @@ def main(opts=None):
                               overlap=args.overlap,
                               progress=True,
                               jobs=args.jobs,
-                              segment=args.segment)
+                              segment=args.segment
+                              prompt=args.prompt,)
+                              
         """
          It loads the model using the class Separator from api.py, and this model contains predefined stems like:
         """
@@ -162,7 +175,7 @@ def main(opts=None):
             continue
         print(f"Separating track {track}")
 
-        origin, res = separator.separate_audio_file(track)
+        origin, res = separator.separate_audio_file(track, conditioning=clap_embedding)
 
         if args.mp3:
             ext = "mp3"

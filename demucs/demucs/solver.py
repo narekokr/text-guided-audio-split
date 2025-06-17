@@ -74,6 +74,7 @@ class Solver(object):
 
         self._reset()
 
+
     def _serialize(self, epoch):
         package = {}
         package['state'] = self.model.state_dict()
@@ -303,8 +304,9 @@ class Solver(object):
                               updates=self.args.misc.num_prints, name=name)
         averager = EMA()
 
-        for idx, sources in enumerate(logprog):
+        for idx, (sources, conditioning) in enumerate(logprog):
             sources = sources.to(self.device)
+            conditioning = conditioning.to(self.device)
             if train:
                 sources = self.augment(sources)
                 mix = sources.sum(dim=1)
@@ -313,9 +315,9 @@ class Solver(object):
                 sources = sources[:, 1:]
 
             if not train and self.args.valid_apply:
-                estimate = apply_model(self.model, mix, split=self.args.test.split, overlap=0)
+                estimate = apply_model(self.model, mix, split=self.args.test.split, overlap=0, conditioning=conditioning)
             else:
-                estimate = self.dmodel(mix)
+                estimate = self.dmodel(mix, conditioning)
             if train and hasattr(self.model, 'transform_target'):
                 sources = self.model.transform_target(mix, sources)
             assert estimate.shape == sources.shape, (estimate.shape, sources.shape)
