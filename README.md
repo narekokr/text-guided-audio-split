@@ -27,3 +27,18 @@ Example input:
 
 ```text
 Prompt: "Extract vocals and bass only"
+
+
+## For Fine-Tuning update the following:
+
+1. Dataset path in conf/config.yaml
+2. CLAP checkpoint path in demucs/api.py
+3. CLAP checkpoint path in audio_utils/separator.py
+4. Dataset path, CLAP checkpoint path and Save Path in fine_tuning/preprocess_triplets.py
+
+
+## TO DO:
+
+1. Remix instructions / Simple DSP
+2. CLAP similarity check to determine instruments in the mix
+3. Relax the fixed set of Valid Stems in audio_utils/separator.py
