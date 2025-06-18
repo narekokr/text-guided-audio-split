@@ -44,6 +44,6 @@ def handle_remix(intent: dict, session_id: str) -> dict:
     sf.write(output_path, mix.T, sr)  # Note transpose to (samples, channels)
 
     return {
-        "reply": f"Remix created based on instructions. Download: /downloads/{output_name}",
+        "reply": f"Remix created based on instructions.",
         "remix": {"file_url": f"/downloads/{output_name}"}
     }
