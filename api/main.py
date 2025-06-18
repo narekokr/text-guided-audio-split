@@ -48,19 +48,21 @@ def chat(request: ChatRequest):
     history = get_history(session_id)
     save_message(session_id, "user", user_message)
 
-
-    #history = session_manager.get_history(request.session_id)
-    #session_manager.add_message(session_id, "user", user_message)
-
     intent = classify_prompt(user_message)
 
     audio_path = get_file_from_db(session_id, file_type="uploaded")
+    valid_stems = {"vocals", "drums", "bass", "other"}
 
     # Stem separation flow
     if intent["type"] == "separation":
         selected_stems = intent.get("stems", [])
         separated = []
         silent_stems = []
+        invalid_stems = [s for s in selected_stems if s not in valid_stems]
+        selected_stems = [s for s in selected_stems if s in valid_stems]
+
+        if invalid_stems:
+            reply = f"Note: The following stems are not supported and will be ignored: {', '.join(invalid_stems)}.\n"
 
         if audio_path and selected_stems:
             outputs = separate_audio(audio_path, selected_stems) #are we sure we have audio path?

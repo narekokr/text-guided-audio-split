@@ -23,15 +23,6 @@ pipe = pipeline("text2text-generation", model="google/flan-t5-large")
 
 
 def extract_stem_list(prompt: str) -> list[str]:
-    """
-       Uses OpenAI ChatGPT model to interpret a user prompt and extract desired stems.
-
-       Args:
-           prompt (str): e.g., "separate vocals and drums"
-
-       Returns:
-           list[str]: e.g., ["vocals", "drums"]
-    """
     logger.info(f"prompt: {prompt}")
     instruction = (
         "From the following user request, extract only the valid stems (vocals, drums, bass, other). "
@@ -78,7 +69,11 @@ def classify_prompt(prompt: str) -> dict:
         For remix:
         {"type": "remix", "volumes": {"vocals": 1.2, "drums": 0.7, "bass": 1.0, "other": 1.0}}
         
-        Make sure same stems are included in remix as in input.
+        Instructions:
+        - Valid stems are: vocals, drums, bass, other. If the user asks for anything else (e.g. trumpet, guitar), return only valid stems and ignore the rest.
+        - If the user requests an unsupported stem (e.g. "give me trumpet"), return: {"type": "separation", "stems": []}
+        - For remixing, always include **all four stems** and only adjust volumes based on the prompt. If no volume is mentioned, use default 1.0.
+        - If the user’s intent is unclear, default to {"type": "separation", "stems": []}
         """
 
 
