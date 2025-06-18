@@ -1,0 +1,167 @@
+/* src/App.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* --- Light Theme Variables (Default) --- */
+:root, .light-theme {
+    --primary-blue: #3b82f6; /* Tailwind blue-500 */
+    --primary-blue-dark: #2563eb; /* Tailwind blue-600 */
+    --accent-purple: #8b5cf6; /* Tailwind purple-500 */
+    --accent-purple-dark: #7c3aed; /* Tailwind purple-600 */
+    --neutral-bg-light: #f9fafb; /* Light gray background */
+    --neutral-bg-medium: #e5e7eb; /* Medium gray */
+    --text-dark: #1f2937; /* Dark gray text */
+    --text-medium: #4b5563; /* Medium gray text */
+    --border-color: #d1d5db; /* Light border */
+    --success-color: #10b981; /* Green */
+    --error-color: #ef4444; /* Red */
+    --info-color: #60a5fa; /* Light blue for info */
+    --card-bg: #ffffff;
+    --shadow-light: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
+    --shadow-medium: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --info-bg: #e0f2fe; /* Tailwind blue-50 */
+    --scrollbar-track: var(--neutral-bg-light);
+    --scrollbar-thumb: var(--border-color);
+    --scrollbar-thumb-hover: #a0a0a0;
+}
+
+/* --- Dark Theme Variables --- */
+.dark-theme {
+    --primary-blue: #60a5fa; /* Slightly brighter blue for dark background */
+    --primary-blue-dark: #3b82f6;
+    --accent-purple: #a78bfa; /* Slightly brighter purple */
+    --accent-purple-dark: #8b5cf6;
+    --neutral-bg-light: #1e293b; /* Darker body background */
+    --neutral-bg-medium: #334155; /* Darker medium gray for separators, etc. */
+    --text-dark: #f8fafc; /* Light text */
+    --text-medium: #cbd5e1; /* Lighter medium gray text */
+    --border-color: #475569; /* Darker border */
+    --success-color: #34d399; /* Brighter green */
+    --error-color: #fca5a5; /* Lighter red */
+    --info-color: #93c5fd; /* Lighter info blue */
+    --card-bg: #2d384b; /* Darker card background */
+    --shadow-light: 0 4px 6px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1); /* Darker shadows */
+    --shadow-medium: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+    --info-bg: #1f2937; /* Darker info background */
+    --scrollbar-track: #1e293b;
+    --scrollbar-thumb: #475569;
+    --scrollbar-thumb-hover: #64748b;
+}
+
+
+body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: var(--neutral-bg-light);
+    color: var(--text-dark);
+    line-height: 1.6;
+    transition: background-color 0.3s ease, color 0.3s ease; /* Smooth theme transition */
+}
+
+.app-container {
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 30px 40px;
+    background-color: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: var(--shadow-medium);
+    border: 1px solid var(--border-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+h1 {
+    font-size: 2.2em;
+    color: var(--primary-blue-dark);
+    text-align: center;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.caption {
+    text-align: center;
+    color: var(--text-medium);
+    font-size: 0.95em;
+    margin-bottom: 40px;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--neutral-bg-medium);
+    margin: 40px 0;
+    transition: border-color 0.3s ease;
+}
+
+.info-message {
+    background-color: var(--info-bg);
+    color: var(--info-color);
+    padding: 18px 25px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    text-align: center;
+    font-size: 0.95em;
+    font-weight: 500;
+    border: 1px solid var(--info-color); /* Use info color for its border */
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.reset-button {
+    display: block;
+    width: fit-content;
+    margin: 25px auto 40px auto;
+    padding: 12px 28px;
+    background-color: var(--accent-purple);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 600;
+    transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out, box-shadow 0.3s ease;
+    box-shadow: var(--shadow-light);
+}
+
+.reset-button:hover {
+    background-color: var(--accent-purple-dark);
+    transform: translateY(-2px);
+}
+
+.reset-button:active {
+    transform: translateY(0);
+}
+
+.reset-button:disabled {
+    background-color: var(--neutral-bg-medium);
+    color: var(--text-medium);
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Theme Toggle Button Styling */
+.theme-toggle-container {
+    text-align: right;
+    margin-bottom: 20px;
+}
+
+.theme-toggle-button {
+    background: var(--neutral-bg-medium);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 1.4em;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.2s ease-in-out;
+    box-shadow: var(--shadow-light);
+}
+
+.theme-toggle-button:hover {
+    background-color: var(--border-color);
+    transform: scale(1.05);
+}
+
+.theme-toggle-button:active {
+    transform: scale(1);
+}
