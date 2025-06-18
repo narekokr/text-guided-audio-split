@@ -781,7 +781,7 @@ class HDemucs(nn.Module):
                 # we have not yet merged branches.
                 lengths_t.append(xt.shape[-1])
                 tenc = self.tencoder[idx]
-                xt = tenc(xt)
+                xt = tenc(xt, cond=cond)
                 if not tenc.empty:
                     # save for skip connection
                     saved_t.append(xt)

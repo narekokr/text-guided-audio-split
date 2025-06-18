@@ -6,6 +6,8 @@ import torchaudio.transforms as T
 from demucs.demucs.pretrained import get_model
 from demucs.demucs.apply import apply_model
 
+from demucs.demucs.hdemucs import HDemucs
+
 from laion_clap import CLAP_Module
 
 # Global CLAP model cache
@@ -15,10 +17,10 @@ def get_clap_model(device="cpu"):
     if _clap_model is None and CLAP_Module is not None:
         _clap_model = CLAP_Module(enable_fusion=False, amodel='HTSAT-base')
         _clap_model.load_ckpt(
-            '/home/akyol/clap-conditioned-source-separation-main/models/music_speech_audioset_epoch_15_esc_89.98.pt'
+            'C:/Users/akyol/Desktop/text-guided-audio-split-main/music_speech_audioset_epoch_15_esc_89.98.pt'
         )   # Update this path as needed
         _clap_model.eval()
-        _clap_model.to(device)
+       # _clap_model.to(device)
     return _clap_model
 
 def get_clap_embedding(text: str, device="cpu"):
@@ -45,7 +47,9 @@ def separate_audio(
         Dict of {stem_name: audio_tensor}
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = get_model(name=model_name)
+    #model = get_model(name=model_name)
+    sources = ["drums", "bass", "other", "vocals"]
+    model = HDemucs(sources=sources)
     model.to(device)
 
     try:
@@ -75,7 +79,7 @@ def separate_audio(
     for stem in selected_stems:
         # 1. Get CLAP embedding of the stem name
         cond = get_clap_embedding(stem, device=device)  # [1, 512]
-
+        
         # 2. Run model with conditioning
         with torch.no_grad():
             out = apply_model(model, wav, device=device, conditioning=cond)[0]  # [num_stems, 2, T]

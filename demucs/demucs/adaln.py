@@ -9,22 +9,32 @@ class AdaLN(nn.Module):
         self.embed_dim = embed_dim
 
     def forward(self, x, cond):
-        # x: (B, C, T) or (B, C, F, T)
+        assert cond is not None, "AdaLN: received cond=None!"
         orig_shape = x.shape
-        if x.dim() == 4:  # reshape to (B*F, T, C)
+        if x.dim() == 4:
             B, C, F, T = x.shape
-            x = x.permute(0, 2, 3, 1).reshape(B * F * T, C)
+            x_ = x.permute(0, 2, 3, 1).reshape(-1, C)  # [B*F*T, C]
+            normed = self.norm(x_)
+            normed = normed.view(B, F, T, C).permute(0, 3, 1, 2)  # [B, C, F, T]
         elif x.dim() == 3:
-            x = x.permute(0, 2, 1)  # (B, T, C)
+            B, C, T = x.shape
+            x_ = x.permute(0, 2, 1).reshape(-1, C)  # [B*T, C]
+            normed = self.norm(x_)
+            normed = normed.view(B, T, C).permute(0, 2, 1)  # [B, C, T]
+        else:
+            raise RuntimeError("AdaLN: x must be 3D or 4D")
 
-        gamma_beta = self.linear(cond)  # (B, 2C)
-        gamma, beta = gamma_beta.chunk(2, dim=-1)  # (B, C), (B, C)
+        # cond: [B, embed_dim]
+        gamma_beta = self.linear(cond)  # [B, 2C]
+        gamma, beta = gamma_beta.chunk(2, dim=-1)  # ([B, C], [B, C])
 
-        normed = self.norm(x)  # Apply LayerNorm
-        out = gamma.unsqueeze(1) * normed + beta.unsqueeze(1)
+        # Expand for time/freq dimensions
+        if x.dim() == 4:
+            gamma = gamma[:, :, None, None]
+            beta = beta[:, :, None, None]
+        else:
+            gamma = gamma[:, :, None]
+            beta = beta[:, :, None]
 
-        if x.dim() == 3:
-            out = out.permute(0, 2, 1)  # back to (B, C, T)
-        elif x.dim() == 2:
-            out = out.view(orig_shape)
+        out = gamma * normed + beta
         return out

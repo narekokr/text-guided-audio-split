@@ -24,11 +24,10 @@ dset:
   sources: ['drums', 'bass', 'other', 'vocals']
   valid_samples: # valid dataset size
   backend: null   # if provided select torchaudio backend.
-<<<<<<< HEAD
-=======
+
   train_pt_dir: /path/to/train/pt/files
   valid_pt_dir: /path/to/valid/pt/files
->>>>>>> local_backup
+
 
 test:
   save: False
@@ -96,11 +95,10 @@ ema:
 
 use_train_segment: true  # to remove
 model_segment:  # override the segment parameter for the model, usually 4 times the training segment.
-<<<<<<< HEAD
-model: demucs  # see demucs/train.py for the possibilities, and config for each model hereafter.
-=======
+
+
 model: hdemucs  # see demucs/train.py for the possibilities, and config for each model hereafter.
->>>>>>> local_backup
+
 demucs:  # see demucs/demucs.py for a detailed description
   # Channels
   channels: 64
