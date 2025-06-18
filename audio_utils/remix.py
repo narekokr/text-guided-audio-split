@@ -1,14 +1,12 @@
 import soundfile as sf
 import numpy as np
-import torchaudio
-import os
 import uuid
 from audio_utils.separator import separate_audio
-from llm_backend.chat_manager import session_manager
+from llm_backend.session_manager import get_file_from_db
 
 #Manipulation (gain scaling) - with numpy it is possible to do this without manipulating tensors manually
 def handle_remix(intent: dict, session_id: str) -> dict:
-    audio_path = session_manager.get_file(session_id) #retrieves audio file associated with this session
+    audio_path = get_file_from_db(session_id) #retrieves audio file associated with this session
     if not audio_path:
         return {"reply": " No audio file found for remixing."}
 
@@ -44,6 +42,6 @@ def handle_remix(intent: dict, session_id: str) -> dict:
     sf.write(output_path, mix.T, sr)  # Note transpose to (samples, channels)
 
     return {
-        "reply": f"Remix created based on instructions. Download: /downloads/{output_name}",
+        "reply": f"Remix created based on instructions.",
         "remix": {"file_url": f"/downloads/{output_name}"}
     }

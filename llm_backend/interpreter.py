@@ -66,8 +66,6 @@ def extract_stem_list(prompt: str) -> list[str]:
         logger.error(f"OpenAI error: {e}")
         return []
 
-#TODO implement interpret_audio_edit() to accommodate requests like boost the vocals by 3dB”
-
 def classify_prompt(prompt: str) -> dict:
     system_prompt = """
         You are a music assistant. Based on user prompt, classify it as either:

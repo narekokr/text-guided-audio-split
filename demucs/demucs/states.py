@@ -16,7 +16,7 @@ from pathlib import Path
 import warnings
 
 from omegaconf import OmegaConf
-from dora.log import fatal
+from dora.dora.log import fatal
 import torch
 
 
