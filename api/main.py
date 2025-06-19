@@ -8,11 +8,17 @@ from audio_utils.remix import handle_remix
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from fastapi.staticfiles import StaticFiles
-from llm_backend.chat_manager import session_manager
+#from llm_backend.session_manager import session_manager
+from llm_backend.session_manager import (
+    get_or_create_session,
+    get_history,
+    save_message,
+    get_file_from_db,
+    reset_session as reset_session_db
+)
+
 import openai
-from openai.types.chat import ChatCompletionUserMessageParam, ChatCompletionAssistantMessageParam, \
-    ChatCompletionSystemMessageParam
-from llm_backend.interpreter import extract_stem_list, classify_prompt
+from llm_backend.interpreter import classify_prompt
 from models.chat_request import ChatRequest
 from api.upload import router as upload_router
 from models.reset_request import ResetRequest
@@ -38,18 +44,25 @@ app.mount("/downloads", StaticFiles(directory="separated"), name="downloads")
 def chat(request: ChatRequest):
     session_id = request.session_id
     user_message = request.message
-    history = session_manager.get_history(request.session_id)
-    session_manager.add_message(session_id, "user", user_message)
+    get_or_create_session(session_id)
+    history = get_history(session_id)
+    save_message(session_id, "user", user_message)
 
     intent = classify_prompt(user_message)
 
-    audio_path = session_manager.get_file(session_id)
+    audio_path = get_file_from_db(session_id, file_type="uploaded")
+    valid_stems = {"vocals", "drums", "bass", "other"}
 
     # Stem separation flow
     if intent["type"] == "separation":
         selected_stems = intent.get("stems", [])
         separated = []
         silent_stems = []
+        invalid_stems = [s for s in selected_stems if s not in valid_stems]
+        selected_stems = [s for s in selected_stems if s in valid_stems]
+
+        if invalid_stems:
+            reply = f"Note: The following stems are not supported and will be ignored: {', '.join(invalid_stems)}.\n"
 
         if audio_path and selected_stems:
             outputs = separate_audio(audio_path, selected_stems) #are we sure we have audio path?
@@ -75,11 +88,11 @@ def chat(request: ChatRequest):
                     url = f"/downloads/{output_name}"
                     separated.append({"name": stem_name, "file_url": url})
 
-            reply = f"✅ Separated stems: {', '.join(s['name'] for s in separated)}. You can download them now."
+            reply = f"Separated stems: {', '.join(s['name'] for s in separated)}. You can download them now."
             if silent_stems:
-                reply += f" ℹ️ Note: The following stems were detected as silent and not included: {', '.join(silent_stems)}."
+                reply += f"Note: The following stems were detected as silent and not included: {', '.join(silent_stems)}."
         else:
-            reply = "⚠️ No audio file or no valid stems selected."
+            reply = "No audio file or no valid stems selected"
         result = {"reply": reply, "stems": separated}
 
     # Remix flow
@@ -91,8 +104,7 @@ def chat(request: ChatRequest):
         result = {
             "reply": "Sorry, I didn't understand your request. Try asking to extract or remix specific stems."
         }
-
-    session_manager.add_message(session_id, "assistant", result["reply"])
+    save_message(session_id, "assistant", result["reply"])
     return {
         "reply": result["reply"],
         "stems": result.get("stems", []),
@@ -102,7 +114,7 @@ def chat(request: ChatRequest):
 
 @app.post("/reset")
 def reset_session(request: ResetRequest):
-    session_manager.reset_session(request.session_id)
+    reset_session_db(request.session_id)
     return {"message": f"Session {request.session_id} has been cleared."}
 
 """
