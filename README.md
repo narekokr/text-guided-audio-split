@@ -1,29 +1,32 @@
 # Text-Guided Audio Stem Separation with Demucs & Hugging Face
 
-This stage of the project demonstrates how to perform **text-guided audio source separation** using:
+This project enables natural language-based audio source separation and remixing. Users can upload an audio file and describe in simple language which components they want to isolate or adjust — such as “extract vocals and drums” or “make the bass softer” — and receive high-quality, downloadable audio stems.
 
-- **Flan-T5** from Hugging Face to interpret user prompts like `"extract vocals and drums"` and convert them into target stems.
+
+- **OpenAI** OpenAI GPT-4 – Interprets natural language prompts and returns structured intent (e.g., stems to separate or volume adjustments).
 - **Demucs** (`mdx_extra_q` model) for high-quality music source separation into standard stems: `vocals`, `drums`, `bass`, and `other`.
-- **FastAPI** to serve a `/separate` endpoint that accepts an audio file and a prompt, performs inference, and returns filtered audio stems in Base64 format.
-- **FastAPI** to serve a `/chat` endpoint that orchestrates communication
+- **FastAPI** Backend service
 
-> ✅ A validation layer ensures only supported stems are passed to Demucs (`vocals`, `drums`, `bass`, `other`), guarding against incorrect or unsafe prompt interpretations.
+> A validation layer ensures only supported stems are passed to Demucs (`vocals`, `drums`, `bass`, `other`), guarding against incorrect or unsafe prompt interpretations.
 
 ---
 
 ## 🚀 How It Works
 
 1. **User uploads audio** and provides a **natural language prompt** (e.g. `"only separate vocals"`).
-2. The prompt is passed to `interpreter.py`, which returns a **clean list of desired stems**.
+2. The prompt is interpreted by interpreter.py using OpenAI, producing response in the following sample format: { "type": "separation", "stems": ["vocals", "drums"] }
 3. Demucs separates the audio into 4 standard stems.
 4. Only the stems mentioned in the prompt are returned in the response.
 5. Output stems are sent back via API in downloadable formats.
+6. Remixing Flow (Experimental) - Users can also modify volume levels using prompts like:
+    "Make the vocals louder, reduce the bass."
+     The backend scales each separated stem using NumPy and reconstructs a remixed .wav file that matches the new mix.
 
 ---
 
-## 🧪 One-Shot Prompt Example
+##Prompt Example
 
 Example input:
 
 ```text
-Prompt: "Extract vocals and bass only"
+Prompt: "Extract vocals and bass"

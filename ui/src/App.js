@@ -138,7 +138,7 @@ function App() {
                 </button>
             </div>
 
-            <h1>🎵 Audio Assistant</h1>
+            <h1>SoundScribe - Audio Assistant</h1>
             {currentFilename ? (
                 <p className="caption"><strong>Now chatting about:</strong> <code>{currentFilename}</code></p>
             ) : (
