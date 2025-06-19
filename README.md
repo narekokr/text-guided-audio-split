@@ -1,4 +1,4 @@
-# Text-Guided Audio Stem Separation with Demucs & Hugging Face
+# Text-Guided Audio Stem Separation with Demucs
 
 This project enables natural language-based audio source separation and remixing. Users can upload an audio file and describe in simple language which components they want to isolate or adjust — such as “extract vocals and drums” or “make the bass softer” — and receive high-quality, downloadable audio stems.
 
