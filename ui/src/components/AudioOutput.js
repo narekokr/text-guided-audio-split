@@ -1,13 +1,18 @@
-// components/AudioOutput.js
 import React from 'react';
-import './AudioOutput.css'; // For styling
+import './AudioOutput.css';
 
 function AudioOutput({ lastStems, lastRemix, apiBaseUrl }) {
+    const hasGeneratedAudio = lastStems.length > 0 || lastRemix;
+
+    if (!hasGeneratedAudio) {
+        return null; // Don't render anything if there's no generated audio
+    }
+
     return (
         <div className="audio-output-sections">
             {lastStems.length > 0 && (
                 <>
-                    <h3>🎧 Separated Stems</h3>
+                    <h3>Separated Stems</h3>
                     <div className="output-container">
                         {lastStems.map((stem, index) => (
                             <div key={index} className="audio-item">
@@ -18,7 +23,7 @@ function AudioOutput({ lastStems, lastRemix, apiBaseUrl }) {
                                     download={`${stem.name}.wav`}
                                     className="download-btn"
                                 >
-                                    ⬇️ Download {stem.name}.wav
+                                    Download {stem.name}.wav
                                 </a>
                             </div>
                         ))}
@@ -28,7 +33,7 @@ function AudioOutput({ lastStems, lastRemix, apiBaseUrl }) {
 
             {lastRemix && (
                 <>
-                    <h3>🎛️ Remixed Audio</h3>
+                    <h3>Remixed Audio</h3>
                     <div className="output-container">
                         <div className="audio-item">
                             <strong>{lastRemix.name ? lastRemix.name.charAt(0).toUpperCase() + lastRemix.name.slice(1) : "Remix"}</strong>
@@ -38,7 +43,7 @@ function AudioOutput({ lastStems, lastRemix, apiBaseUrl }) {
                                 download={`${lastRemix.name || "remix"}.wav`}
                                 className="download-btn"
                             >
-                                ⬇️ Download {lastRemix.name || "Remix"}.wav
+                                Download {lastRemix.name || "Remix"}.wav
                             </a>
                         </div>
                     </div>

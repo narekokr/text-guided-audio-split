@@ -12,21 +12,22 @@ function App() {
     const [sessionId, setSessionId] = useState(null);
     const [fileUploaded, setFileUploaded] = useState(false);
     const [currentFilename, setCurrentFilename] = useState(null);
+    const [initialAudioUrl, setInitialAudioUrl] = useState(null);
     const [chatHistory, setChatHistory] = useState([]);
     const [lastStems, setLastStems] = useState([]);
     const [lastRemix, setLastRemix] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [isDarkTheme, setIsDarkTheme] = useState(true); // Start with dark theme
+    const [isDarkTheme, setIsDarkTheme] = useState(true);
     const chatContainerRef = useRef(null);
 
     // Apply dark/light theme class to body
     useEffect(() => {
         if (isDarkTheme) {
             document.body.classList.add('dark-theme');
-            document.body.classList.remove('light-theme'); // Ensure light theme is removed
+            document.body.classList.remove('light-theme');
         } else {
             document.body.classList.add('light-theme');
-            document.body.classList.remove('dark-theme'); // Ensure dark theme is removed
+            document.body.classList.remove('dark-theme');
         }
     }, [isDarkTheme]);
 
@@ -53,9 +54,16 @@ function App() {
                 console.error("Error resetting backend session:", error);
             }
         }
+
+        if (initialAudioUrl) {
+            URL.revokeObjectURL(initialAudioUrl);
+            console.log("Revoked local audio URL:", initialAudioUrl);
+        }
+
         setSessionId(uuidv4());
         setFileUploaded(false);
         setCurrentFilename(null);
+        setInitialAudioUrl(null);
         setChatHistory([]);
         setLastStems([]);
         setLastRemix(null);
@@ -68,6 +76,11 @@ function App() {
         setIsProcessing(true);
         setCurrentFilename(file.name);
         setChatHistory([]);
+        setLastStems([]);
+        setLastRemix(null);
+
+        const localAudioUrl = URL.createObjectURL(file);
+        setInitialAudioUrl(localAudioUrl);
 
         try {
             await apiResetSession(sessionId);
@@ -75,17 +88,21 @@ function App() {
             const response = await uploadAudio(file, sessionId);
             if (response.success) {
                 setFileUploaded(true);
-                setChatHistory([{ role: 'assistant', content: '✅ File ready! You can now start chatting below.' }]);
+                setChatHistory([{ role: 'assistant', content: 'File ready! You can now start chatting below.' }]);
             } else {
                 console.error("Upload failed:", response.error);
                 setFileUploaded(false);
                 setCurrentFilename(null);
+                if (localAudioUrl) URL.revokeObjectURL(localAudioUrl);
+                setInitialAudioUrl(null);
                 setChatHistory([{ role: 'assistant', content: `❌ Upload failed: ${response.error}` }]);
             }
         } catch (error) {
             console.error("Connection Error:", error);
             setFileUploaded(false);
             setCurrentFilename(null);
+            if (localAudioUrl) URL.revokeObjectURL(localAudioUrl);
+            setInitialAudioUrl(null);
             setChatHistory([{ role: 'assistant', content: '❌ Connection Error. Is the API server running?' }]);
         } finally {
             setIsProcessing(false);
@@ -127,58 +144,93 @@ function App() {
     }, [chatHistory]);
 
     return (
-        <div className="app-container">
-            <div className="theme-toggle-container">
-                <button
-                    onClick={() => setIsDarkTheme(prev => !prev)}
-                    className="theme-toggle-button"
-                    title={isDarkTheme ? "Switch to Light Theme" : "Switch to Dark Theme"}
-                >
-                    {isDarkTheme ? '☀️' : '🌙'}
-                </button>
-            </div>
+        <div className="app-layout">
+            <aside className="sidebar">
+                <div className="sidebar-header">
+                    <button className="new-chat-button" onClick={resetApplicationState}>
+                        + New Chat
+                    </button>
+                    <button
+                        onClick={() => setIsDarkTheme(prev => !prev)}
+                        className="theme-toggle-button"
+                        title={isDarkTheme ? "Switch to Light Theme" : "Switch to Dark Theme"}
+                    >
+                        {isDarkTheme ? '☀️' : '🌙'}
+                    </button>
+                </div>
+                <div className="conversations-history">
+                    {/* Conversation history will go here later */}
+                    <p>No conversations yet.</p>
+                </div>
+            </aside>
 
-            <h1>SoundScribe - Audio Assistant</h1>
-            {currentFilename ? (
-                <p className="caption"><strong>Now chatting about:</strong> <code>{currentFilename}</code></p>
-            ) : (
-                <p className="caption">Upload an audio file below to get started.</p>
-            )}
-
-            <FileUpload
-                onFileUpload={handleFileUpload}
-                isProcessing={isProcessing}
-                fileUploaded={fileUploaded}
-                resetApplicationState={resetApplicationState}
-            />
-
-            {(fileUploaded || chatHistory.length > 0) && (
-                <button onClick={resetApplicationState} className="reset-button">
-                    🔄 Start New Session
-                </button>
-            )}
-
-            {fileUploaded && (
-                <>
-                    <hr />
-                    {!chatHistory.length && !isProcessing && (
-                        <p className="info-message">Your audio is ready. Ask the assistant something, like 'separate vocals and bass'.</p>
+            <main className="main-content">
+                <div className="app-container">
+                    <h1>SoundScribe - Audio Assistant</h1>
+                    {currentFilename ? (
+                        <p className="caption"><strong>Now chatting about:</strong> <code>{currentFilename}</code></p>
+                    ) : (
+                        <p className="caption">Upload an audio file below to get started.</p>
                     )}
 
-                    <ChatInterface
-                        chatHistory={chatHistory}
-                        onSendMessage={handleSendMessage}
+                    <FileUpload
+                        onFileUpload={handleFileUpload}
                         isProcessing={isProcessing}
-                        chatContainerRef={chatContainerRef}
+                        fileUploaded={fileUploaded}
+                        resetApplicationState={resetApplicationState}
                     />
 
-                    <AudioOutput
-                        lastStems={lastStems}
-                        lastRemix={lastRemix}
-                        apiBaseUrl={API_URL}
-                    />
-                </>
-            )}
+
+
+                    {fileUploaded && (
+                        <>
+                            <hr className="divider" />
+                            {!chatHistory.length && !isProcessing && (
+                                <p className="info-message">Your audio is ready. Ask the assistant something, like 'separate vocals and bass'.</p>
+                            )}
+
+                            {/* FIRST: Original Audio */}
+                            {initialAudioUrl && (
+                                <>
+                                    <h3>Original Audio</h3>
+                                    <div className="output-container">
+                                        <div className="audio-item">
+                                            <strong>Original File</strong>
+                                            <audio controls src={initialAudioUrl} className="audio-player"></audio>
+                                            <a
+                                                href={initialAudioUrl}
+                                                download
+                                                className="download-btn"
+                                            >
+                                                Download Original
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <hr className="divider" />
+                                </>
+                            )}
+
+                            {/* SECOND: Chat Interface */}
+                            <ChatInterface
+                                chatHistory={chatHistory}
+                                onSendMessage={handleSendMessage}
+                                isProcessing={isProcessing}
+                                chatContainerRef={chatContainerRef}
+                            />
+
+                            {/* Only show divider if there will be generated audios and if chat history has content */}
+                            {(lastStems.length > 0 || lastRemix) && (chatHistory.length > 0) && (
+                                <hr className="divider" />
+                            )}
+                            <AudioOutput
+                                lastStems={lastStems}
+                                lastRemix={lastRemix}
+                                apiBaseUrl={API_URL}
+                            />
+                        </>
+                    )}
+                </div>
+            </main>
         </div>
     );
 }

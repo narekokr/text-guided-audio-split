@@ -45,7 +45,6 @@ def chat(request: ChatRequest):
     session_id = request.session_id
     user_message = request.message
     get_or_create_session(session_id)
-    history = get_history(session_id)
     save_message(session_id, "user", user_message)
 
     intent = classify_prompt(user_message)
@@ -105,6 +104,8 @@ def chat(request: ChatRequest):
             "reply": "Sorry, I didn't understand your request. Try asking to extract or remix specific stems."
         }
     save_message(session_id, "assistant", result["reply"])
+    history = get_history(session_id)
+
     return {
         "reply": result["reply"],
         "stems": result.get("stems", []),
