@@ -62,20 +62,52 @@ def classify_prompt(prompt: str) -> dict:
         You are a music assistant. Based on user prompt, classify it as either:
         1. Separation → if user asks to extract stems like 'give me vocals and drums'
         2. Remix → if user gives volume/adjustment hints like 'make vocals louder, mellow the drums'
-        Return JSON structure similar according to the specifications below:
+        Return a strict JSON structure as specified below.
+
         For separation:
-        {"type": "separation", "stems": ["vocals", "drums"]}
+        {
+            "type": "separation", 
+            "stems": ["vocals", "drums"]
+        }
         
-        For remix:
-        {"type": "remix", "volumes": {"vocals": 1.2, "drums": 0.7, "bass": 1.0, "other": 1.0}}
-        
+        - Valid stems are: vocals, drums, bass, other.
+        - If user requests unsupported stems (e.g. trumpet), ignore them.
+        - If none are valid, return: {"type": "separation", "stems": []}
+
+        {
+          "type": "remix",
+          "instructions": {
+            "volumes": {
+              "vocals": 1.2,
+              "drums": 0.7,
+              "bass": 1.0,
+              "other": 1.0
+            },
+            "reverb": {
+              "vocals": 0.5
+            },
+            "pitch_shift": {
+              "vocals": 2
+            },
+            "compression": {
+              "vocals": "low"
+            }
+          }
+        }
+
         Instructions:
+        - **Instructions.volumes**: Always include all four stems with float multipliers (default 1.0 if not mentioned).
+        - **Instructions.reverb**: Value between 0.0 (none) to 1.0 (max).
+        - **Instructions.pitch_shift**: Integer in semitones (+ for up, - for down).
+        - **Instructions.compression**: Choose among "low", "medium", "high".
         - Valid stems are: vocals, drums, bass, other. If the user asks for anything else (e.g. trumpet, guitar), return only valid stems and ignore the rest.
         - If the user requests an unsupported stem (e.g. "give me trumpet"), return: {"type": "separation", "stems": []}
         - For remixing, always include **all four stems** and only adjust volumes based on the prompt. If no volume is mentioned, use default 1.0.
         - If the user’s intent is unclear, default to {"type": "separation", "stems": []}
-        """
+        
+        Return only valid JSON as above. No explanations.
 
+        """
 
     chat = [
         ChatCompletionSystemMessageParam(role="system", content=system_prompt),
