@@ -3,15 +3,18 @@ defaults:
   - dset: musdb44
   - svd: default
   - variant: default
-  - override hydra/hydra_logging: colorlog
-  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: default
+  - override hydra/job_logging: default
+
+train_pt_dir: /mnt/c/Users/akyol/Desktop/triplets
+valid_pt_dir: /mnt/c/Users/akyol/Desktop/valid
 
 dummy:
 dset:
   musdb: /checkpoint/defossez/datasets/musdbhq
   musdb_samplerate: 44100
-  use_musdb: true   # set to false to not use musdb as training data.
-  wav:  # path to custom wav dataset
+  use_musdb: false   # set to false to not use musdb as training data.
+  wav: /mnt/c/Users/akyol/Desktop/triplets # path to custom wav dataset
   wav2:  # second custom wav dataset
   segment: 11
   shift: 1
@@ -21,12 +24,11 @@ dset:
   channels: 2
   normalize: true
   metadata: ./metadata
-  sources: ['drums', 'bass', 'other', 'vocals']
-  valid_samples: # valid dataset size
+  sources: ['stem']
+  valid_samples: 1379 # valid dataset size
   backend: null   # if provided select torchaudio backend.
 
-  train_pt_dir: /path/to/train/pt/files
-  valid_pt_dir: /path/to/valid/pt/files
+
 
 
 test:
@@ -42,7 +44,7 @@ test:
   nonhq:   # path to non hq MusDB for evaluation
 
 epochs: 360
-batch_size: 64
+batch_size: 8
 max_batches:  # limit the number of batches per epoch, useful for debugging
               # or if your dataset is gigantic.
 optim:
@@ -59,7 +61,7 @@ debug: false
 valid_apply: true
 flag:
 save_every:
-weights: [1., 1., 1., 1.]  # weights over each source for the training/valid loss.
+weights: [1.]  # weights over each source for the training/valid loss.
 
 augment:
   shift_same: false
@@ -82,7 +84,7 @@ continue_best: true
 continue_opt: false
 
 misc:
-  num_workers: 10
+  num_workers: 0
   num_prints: 4
   show: false
   verbose: false
