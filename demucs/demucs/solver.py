@@ -37,7 +37,8 @@ class Solver(object):
         self.quantizer = states.get_quantizer(self.model, args.quant, self.optimizer)
         self.dmodel = distrib.wrap(model)
         self.device = next(iter(self.model.parameters())).device
-
+        print("CUDA available:", torch.cuda.is_available())
+        print("Device:", self.device)
         # Exponential moving average of the model, either updated every batch or epoch.
         # The best model from all the EMAs and the original one is kept based on the valid
         # loss for the final best model.
@@ -303,16 +304,17 @@ class Solver(object):
         logprog = LogProgress(logger, data_loader, total=total,
                               updates=self.args.misc.num_prints, name=name)
         averager = EMA()
-
-        for idx, (sources, conditioning) in enumerate(logprog):
+        
+        print("About to start epoch main loop")
+        for idx, (mix, sources, conditioning) in enumerate(logprog):
+            print(f"Batch {idx} loaded: mix {mix.shape} sources {sources.shape} conditioning {conditioning.shape}")
+            mix = mix.to(self.device)
             sources = sources.to(self.device)
             conditioning = conditioning.to(self.device)
             if train:
-                sources = self.augment(sources)
-                mix = sources.sum(dim=1)
-            else:
-                mix = sources[:, 0]
-                sources = sources[:, 1:]
+                if hasattr(self, 'augment'):
+                    sources = self.augment(sources)
+
 
             if not train and self.args.valid_apply:
                 estimate = apply_model(self.model, mix, split=self.args.test.split, overlap=0, conditioning=conditioning)
@@ -320,6 +322,13 @@ class Solver(object):
                 estimate = self.dmodel(mix, conditioning)
             if train and hasattr(self.model, 'transform_target'):
                 sources = self.model.transform_target(mix, sources)
+            # --- Fix segment lengths ---
+            T_est = estimate.shape[-1]
+            T_true = sources.shape[-1]
+            T = min(T_est, T_true)
+            estimate = estimate[..., :T]
+            sources = sources[..., :T]
+
             assert estimate.shape == sources.shape, (estimate.shape, sources.shape)
             dims = tuple(range(2, sources.dim()))
 

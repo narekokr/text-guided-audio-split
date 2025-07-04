@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 import tqdm
 
-import musdb
+
 import julius
 import torch as th
 from torch import distributed
@@ -212,18 +212,17 @@ def get_wav_datasets(args, name='wav'):
                        normalize=args.normalize, **kw_cv)
     return train_set, valid_set
 
-
+"""
 def _get_musdb_valid():
     # Return musdb valid set.
     import yaml
     setup_path = Path(musdb.__path__[0]) / 'configs' / 'mus.yaml'
     setup = yaml.safe_load(open(setup_path, 'r'))
-    return setup['validation_tracks']
-
-
+    return setup['validation_tracks'] 
+"""
+"""
 def get_musdb_wav_datasets(args):
-    """Extract the musdb dataset from the XP arguments."""
-    sig = hashlib.sha1(str(args.musdb).encode()).hexdigest()[:8]
+        sig = hashlib.sha1(str(args.musdb).encode()).hexdigest()[:8]
     metadata_file = Path(args.metadata) / ('musdb_' + sig + ".json")
     root = Path(args.musdb) / "train"
     if not metadata_file.is_file() and distrib.rank == 0:
@@ -251,4 +250,4 @@ def get_musdb_wav_datasets(args):
     valid_set = Wavset(root, metadata_valid, [MIXTURE] + list(args.sources),
                        samplerate=args.samplerate, channels=args.channels,
                        normalize=args.normalize, **kw_cv)
-    return train_set, valid_set
+    return train_set, valid_set """

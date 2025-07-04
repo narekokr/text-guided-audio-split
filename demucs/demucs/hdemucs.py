@@ -402,7 +402,7 @@ class HDemucs(nn.Module):
     """
     @capture_init
     def __init__(self,
-                 sources,
+                 sources=1,
                  # Channels
                  audio_channels=2,
                  channels=48,
@@ -536,7 +536,7 @@ class HDemucs(nn.Module):
         if self.cac:
             chin_z *= 2
         
-        chin_z += cond_channels  # Always reserve room for condition projection
+        #chin_z += cond_channels  # Always reserve room for condition projection
         
         chout = channels_time or channels
         chout_z = channels
@@ -595,10 +595,11 @@ class HDemucs(nn.Module):
             
             # Encoder
             enc = HEncLayer(chin_z, chout_z,
-                            dconv=dconv_mode & 1, context=context_enc, **kw)
+                            dconv=dconv_mode & 1, context=context_enc,
+                            condition_dim=cond_channels, **kw)
             if hybrid and freq:
                 tenc = HEncLayer(chin, chout, dconv=dconv_mode & 1, context=context_enc,
-                                 empty=last_freq, **kwt)
+                                 condition_dim=512, empty=last_freq, **kwt)
                 self.tencoder.append(tenc)
 
             if multi:
@@ -612,12 +613,14 @@ class HDemucs(nn.Module):
 
             # Decoder        
             dec = HDecLayer(chout_z, chin_z, dconv=dconv_mode & 2,
-                            last=index == 0, context=context, **kw_dec)
+                            last=index == 0, context=context,
+                            condition_dim=cond_channels, **kw_dec)
             if multi:
                 dec = MultiWrap(dec, multi_freqs)
             if hybrid and freq:
                 tdec = HDecLayer(chout, chin, dconv=dconv_mode & 2, empty=last_freq,
-                                 last=index == 0, context=context, **kwt)
+                                 last=index == 0, context=context,
+                                 condition_dim=512, **kwt)
                 self.tdecoder.insert(0, tdec)
             self.decoder.insert(0, dec)
 
@@ -751,11 +754,16 @@ class HDemucs(nn.Module):
         B, C, Fq, T = x.shape
 
         if cond is not None:
+            if cond.dim() == 3 and cond.shape[1] == 1:
+                cond = cond.squeeze(1)
             cond_feat = self.cond_proj(cond)        # [B, chin_z]
-            cond_feat = cond_feat.view(B, -1, 1, 1)  # Make it [B, C, 1, 1]
-            cond_feat = cond_feat.expand(-1, -1, Fq, T)   # Broadcast to [B, C, F, T]
-            x = torch.cat([x, cond_feat], dim=1)         # Now input is [B, C + cond_channels, F, T]
-
+            #cond_feat = cond_feat.view(B, -1, 1, 1)  # Make it [B, C, 1, 1]
+            #cond_feat = cond_feat.expand(-1, -1, Fq, T)   # Broadcast to [B, C, F, T]
+            #print("x.shape:", x.shape)
+            #print("cond_feat.shape:", cond_feat.shape)
+            #x = torch.cat([x, cond_feat], dim=1)         # Now input is [B, C + cond_channels, F, T]
+        else:
+            cond_feat = None
         # unlike previous Demucs, we always normalize because it is easier.
         mean = x.mean(dim=(1, 2, 3), keepdim=True)
         std = x.std(dim=(1, 2, 3), keepdim=True)
@@ -775,10 +783,12 @@ class HDemucs(nn.Module):
         lengths = []  # saved lengths to properly remove padding, freq branch.
         lengths_t = []  # saved lengths for time branch.
         for idx, encode in enumerate(self.encoder):
+            
             lengths.append(x.shape[-1])
             inject = None
             if self.hybrid and idx < len(self.tencoder):
                 # we have not yet merged branches.
+
                 lengths_t.append(xt.shape[-1])
                 tenc = self.tencoder[idx]
                 xt = tenc(xt, cond=cond)
@@ -789,7 +799,7 @@ class HDemucs(nn.Module):
                     # tenc contains just the first conv., so that now time and freq.
                     # branches have the same shape and can be merged.
                     inject = xt
-            x = encode(x, inject, cond)
+            x = encode(x, inject, cond_feat)
             if idx == 0 and self.freq_emb is not None:
                 # add frequency embedding to allow for non equivariant convolutions
                 # over the frequency axis.
@@ -805,8 +815,9 @@ class HDemucs(nn.Module):
         # initialize everything to zero (signal will go through u-net skips).
 
         for idx, decode in enumerate(self.decoder):
+            
             skip = saved.pop(-1)
-            x, pre = decode(x, skip, lengths.pop(-1), cond=cond)
+            x, pre = decode(x, skip, lengths.pop(-1), cond=cond_feat)
             # `pre` contains the output just before final transposed convolution,
             # which is used when the freq. and time branch separate.
 

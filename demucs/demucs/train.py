@@ -19,9 +19,10 @@ import torch
 from torch import nn
 import torchaudio
 from torch.utils.data import ConcatDataset
+import numpy as np
 
 from . import distrib
-from .wav import get_wav_datasets, get_musdb_wav_datasets
+from .wav import get_wav_datasets
 from .demucs import Demucs
 from .hdemucs import HDemucs
 from .htdemucs import HTDemucs
@@ -81,24 +82,37 @@ class StemCLAPDataset(Dataset):
         return len(self.pt_files)
 
     def __getitem__(self, idx):
-        data = torch.load(self.pt_files[idx], map_location="cpu")
-        mix = data['mix']      # [C, T]
-        stems = data['stem']  # [S, C, T]
-        clap = data['embedding']    # [S, 512] (or whatever dim)
-        return mix, stems, clap
+        arrs = np.load(self.pt_files[idx])
+        mix = torch.from_numpy(arrs['mix'])
+        # Handles both 1D and 2D mix (mono or stereo)
+        if mix.dim() == 1:
+            mix = mix.unsqueeze(0)
+        if mix.shape[0] == 1:
+            mix = mix.repeat(2, 1)
+        stem = torch.from_numpy(arrs['stem'])
+        # Handles both 2D (C, T) and 3D (S, C, T) stems
+        if stem.dim() == 2:
+            stem = stem.unsqueeze(0)
+        if stem.shape[1] == 1:
+            stem = stem.repeat(1, 2, 1)
+        embedding = torch.from_numpy(arrs['embedding'])
+        return mix, stem, embedding
 
 def collate_stem_clap(batch):
     mixes, stems_list, claps = zip(*batch)
     max_length = max(mix.shape[-1] for mix in mixes)
     padded_mixes = []
     padded_stems = []
-    for mix, stems in zip(mixes, stems_list):
+    for mix, stem in zip(mixes, stems_list):    # stem, not stems
         pad_amt = max_length - mix.shape[-1]
         padded_mixes.append(torch.nn.functional.pad(mix, (0, pad_amt)))
-        padded_stems.append(torch.nn.functional.pad(stems, (0, pad_amt)))
-    padded_mixes = torch.stack(padded_mixes)    # [B, C, T]
-    padded_stems = torch.stack(padded_stems)    # [B, S, C, T]
-    claps = torch.stack(claps)                  # [B, S, E]
+        # stem: [1, 2, T] or [2, T]; ensure [1, 2, T]
+        if stem.dim() == 2:
+            stem = stem.unsqueeze(0)
+        padded_stems.append(torch.nn.functional.pad(stem, (0, pad_amt)))
+    padded_mixes = torch.stack(padded_mixes)    # [B, 2, T]
+    padded_stems = torch.stack(padded_stems)    # [B, 1, 2, T]
+    claps = torch.stack(claps)                  # [B, E] or [B, 1, E]
     return padded_mixes, padded_stems, claps
 
 def get_optimizer(model, args):
@@ -137,16 +151,16 @@ def get_optimizer(model, args):
 
 def get_datasets(args):
     """
-    Instead of MUSDB or other datasets, we use our own pt files.
+    Instead of MUSDB or other datasets, we use our own npz files.
     Update the paths here or pass them in args!
     """
     import glob
-    # Example: get .pt files from directories specified in args
-    train_pt_files = sorted(glob.glob(args.train_pt_dir + '/*.pt'))
-    valid_pt_files = sorted(glob.glob(args.valid_pt_dir + '/*.pt'))
-    assert len(train_pt_files), f"No training .pt files found in {args.train_pt_dir}"
-    assert len(valid_pt_files), f"No validation .pt files found in {args.valid_pt_dir}"
-    return train_pt_files, valid_pt_files
+    # Example: get .npz files from directories specified in args
+    train_npz_files = sorted(glob.glob(args.train_pt_dir + '/*.npz'))
+    valid_npz_files = sorted(glob.glob(args.valid_pt_dir + '/*.npz'))
+    assert len(train_npz_files), f"No training .npz files found in {args.train_pt_dir}"
+    assert len(valid_npz_files), f"No validation .npz files found in {args.valid_pt_dir}"
+    return train_npz_files, valid_npz_files
 
 
 def get_solver(args, model_only=False):
