@@ -2,7 +2,6 @@
 
 This project enables natural language-based audio source separation and remixing. Users can upload an audio file and describe in simple language which components they want to isolate or adjust — such as “extract vocals and drums” or “make the bass softer” — and receive high-quality, downloadable audio stems.
 
-
 - **Open AI** OpenAI GPT-4 – Interprets natural language prompts and returns structured intent (e.g., stems to separate or volume adjustments).
 - **Demucs** (`mdx_extra_q` model) for high-quality music source separation into standard stems: `vocals`, `drums`, `bass`, and `other`.
 - **FastAPI** Backend service

@@ -7,7 +7,7 @@ from audio_utils.remix import handle_remix
 from audio_utils.remix import apply_gain_scaling, apply_reverb, change_pitch, apply_compression
 from unittest.mock import patch, MagicMock
 TEST_AUDIO = "tests/test.wav"
-"""
+
 @patch("llm_backend.session_manager.save_file_to_db")
 def test_handle_remix_flow(mock_save, tmp_path):
     # Setup dummy file in DB/session
@@ -125,14 +125,11 @@ def test_apply_reverb_has_tail(dummy_wav):
     y_in, sr = sf.read(dummy_wav)
     y_out, sr_out = sf.read(result)
 
-    # ✅ Confirm output length is same
     assert y_in.shape == y_out.shape
 
-    # ✅ Compute RMS envelopes
     rms_in = librosa.feature.rms(y=y_in.T)[0]
     rms_out = librosa.feature.rms(y=y_out.T)[0]
 
-    # ✅ Check average tail RMS (last 10% frames) is higher in output (due to reverb decay)
     tail_in = np.mean(rms_in[int(len(rms_in)*0.9):])
     tail_out = np.mean(rms_out[int(len(rms_out)*0.9):])
 
@@ -140,8 +137,6 @@ def test_apply_reverb_has_tail(dummy_wav):
 
     os.remove(result)
 
-"""
-#pytest tests/test_dsp.py -v
 
 """
 DONE:
