@@ -1,5 +1,4 @@
 import json
-
 from transformers import pipeline
 import logging
 from demucs.demucs.pretrained import get_model
@@ -62,20 +61,78 @@ def classify_prompt(prompt: str) -> dict:
         You are a music assistant. Based on user prompt, classify it as either:
         1. Separation → if user asks to extract stems like 'give me vocals and drums'
         2. Remix → if user gives volume/adjustment hints like 'make vocals louder, mellow the drums'
-        Return JSON structure similar according to the specifications below:
+        Return a strict JSON structure as specified below.
+
         For separation:
-        {"type": "separation", "stems": ["vocals", "drums"]}
+        {
+            "type": "separation", 
+            "stems": ["vocals", "drums"]
+        }
         
-        For remix:
-        {"type": "remix", "volumes": {"vocals": 1.2, "drums": 0.7, "bass": 1.0, "other": 1.0}}
-        
+        - Valid stems are: vocals, drums, bass, other.
+        - If user requests unsupported stems (e.g. trumpet), ignore them.
+        - If none are valid, return: {"type": "separation", "stems": []}
+
+        {
+          "type": "remix",
+          "instructions": {
+            "volumes": {
+              "vocals": 1.2,
+              "drums": 0.7,
+              "bass": 1.0,
+              "other": 1.0
+            },
+            "reverb": {
+              "vocals": 0.5
+            },
+            "pitch_shift": {
+              "vocals": 2
+            },
+            "compression": {
+              "vocals": "low"
+            }
+          }
+        }
+
         Instructions:
+        - **Instructions.volumes**: Always include all four stems with float multipliers (default 1.0 if not mentioned).
+        - **Instructions.reverb**: Value between 0.0 (none) to 1.0 (max).
+        - **Instructions.pitch_shift**: Integer in semitones (+ for up, - for down).
+        - **Instructions.compression**: Choose among "low", "medium", "high".
         - Valid stems are: vocals, drums, bass, other. If the user asks for anything else (e.g. trumpet, guitar), return only valid stems and ignore the rest.
         - If the user requests an unsupported stem (e.g. "give me trumpet"), return: {"type": "separation", "stems": []}
         - For remixing, always include **all four stems** and only adjust volumes based on the prompt. If no volume is mentioned, use default 1.0.
         - If the user’s intent is unclear, default to {"type": "separation", "stems": []}
-        """
+        For volumes:
+            - If user says "slightly louder" or "a bit louder": set to 1.1
+            - If user says "louder": set to 1.3
+            - If user says "much louder": set to 1.6
+            - If user says "extremely louder" or "max volume": set to 2.0
+            - "slightly softer" or "a bit softer": 0.9
+            - "softer": 0.7
+            - "much softer": 0.5
+            - "mute": 0.0
+        For pitch_shift:
+            - If user says "raise pitch by X semitones" or "increase pitch by X", set to +X.
+            - If user says "lower pitch by X semitones" or "decrease pitch by X", set to -X.
+            - If unspecified, set to 0.
 
+        For reverb:
+            - If user says "slight reverb" or "a bit of reverb": 0.2
+            - If user says "reverb" or "add reverb": 0.5
+            - If user says "heavy reverb" or "a lot of reverb": 0.8
+            - If user says "maximum reverb" or "max reverb": 1.0
+            - If unspecified, set to 0.0.
+        
+        For compression:
+            - If user says "light compression" or "slight compression": "low"
+            - If user says "compression" or "add compression": "medium"
+            - If user says "strong compression" or "heavy compression": "high"
+            - If unspecified, set to "medium".
+
+        Return only valid JSON as above. No explanations.
+
+        """
 
     chat = [
         ChatCompletionSystemMessageParam(role="system", content=system_prompt),
@@ -93,3 +150,4 @@ def classify_prompt(prompt: str) -> dict:
         return json.loads(response)
     except json.JSONDecodeError:
         return {"type": "separation", "stems": []}  # Fallback
+

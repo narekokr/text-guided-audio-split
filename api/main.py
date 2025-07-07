@@ -8,7 +8,6 @@ from audio_utils.remix import handle_remix
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from fastapi.staticfiles import StaticFiles
-#from llm_backend.session_manager import session_manager
 from llm_backend.session_manager import (
     get_or_create_session,
     get_history,
@@ -23,7 +22,7 @@ from models.chat_request import ChatRequest
 from api.upload import router as upload_router
 from models.reset_request import ResetRequest
 
-app = FastAPI()
+app = FastAPI(debug=True)
 
 with open("api_key.txt", "r") as file:
     api_key = file.read().strip()
@@ -52,7 +51,6 @@ def chat(request: ChatRequest):
     audio_path = get_file_from_db(session_id, file_type="uploaded")
     valid_stems = {"vocals", "drums", "bass", "other"}
 
-    # Stem separation flow
     if intent["type"] == "separation":
         selected_stems = intent.get("stems", [])
         separated = []
@@ -120,6 +118,7 @@ def reset_session(request: ResetRequest):
 
 """
 TODO
+Implement caching
 GET /status — for long jobs or async audio processing or reporting what has been separated or downloaded
 GET /stems/{id} — to retrieve previously generated files
 """
