@@ -1,0 +1,19 @@
+volume_mappings:
+  slightly louder: 1.1
+  a bit louder: 1.1
+  louder: 1.3
+  much louder: 1.6
+  extremely louder: 2.0
+  max volume: 2.0
+
+  slightly softer: 0.9
+  a bit softer: 0.9
+  softer: 0.7
+  much softer: 0.5
+  mute: 0.0
+
+reverb:
+  slight reverb: 0.2
+  reverb: 0.5
+  heavy reverb: 0.8
+  maximum reverb: 1.0

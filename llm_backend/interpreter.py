@@ -1,5 +1,4 @@
 import json
-
 from transformers import pipeline
 import logging
 from demucs.demucs.pretrained import get_model
@@ -104,7 +103,33 @@ def classify_prompt(prompt: str) -> dict:
         - If the user requests an unsupported stem (e.g. "give me trumpet"), return: {"type": "separation", "stems": []}
         - For remixing, always include **all four stems** and only adjust volumes based on the prompt. If no volume is mentioned, use default 1.0.
         - If the user’s intent is unclear, default to {"type": "separation", "stems": []}
+        For volumes:
+            - If user says "slightly louder" or "a bit louder": set to 1.1
+            - If user says "louder": set to 1.3
+            - If user says "much louder": set to 1.6
+            - If user says "extremely louder" or "max volume": set to 2.0
+            - "slightly softer" or "a bit softer": 0.9
+            - "softer": 0.7
+            - "much softer": 0.5
+            - "mute": 0.0
+        For pitch_shift:
+            - If user says "raise pitch by X semitones" or "increase pitch by X", set to +X.
+            - If user says "lower pitch by X semitones" or "decrease pitch by X", set to -X.
+            - If unspecified, set to 0.
+
+        For reverb:
+            - If user says "slight reverb" or "a bit of reverb": 0.2
+            - If user says "reverb" or "add reverb": 0.5
+            - If user says "heavy reverb" or "a lot of reverb": 0.8
+            - If user says "maximum reverb" or "max reverb": 1.0
+            - If unspecified, set to 0.0.
         
+        For compression:
+            - If user says "light compression" or "slight compression": "low"
+            - If user says "compression" or "add compression": "medium"
+            - If user says "strong compression" or "heavy compression": "high"
+            - If unspecified, set to "medium".
+
         Return only valid JSON as above. No explanations.
 
         """
@@ -125,3 +150,4 @@ def classify_prompt(prompt: str) -> dict:
         return json.loads(response)
     except json.JSONDecodeError:
         return {"type": "separation", "stems": []}  # Fallback
+
