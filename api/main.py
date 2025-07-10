@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from pydub import AudioSegment
 from pydub.silence import detect_silence
 from audio_utils.separator import separate_audio
-from audio_utils.remix import handle_remix
+from audio_utils.remix import handle_remix, session_last_instructions, session_active_task
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +21,7 @@ from llm_backend.interpreter import classify_prompt
 from models.chat_request import ChatRequest
 from api.upload import router as upload_router
 from models.reset_request import ResetRequest
+import numpy as np
 
 app = FastAPI(debug=True)
 
@@ -45,62 +46,86 @@ def chat(request: ChatRequest):
     user_message = request.message
     get_or_create_session(session_id)
     save_message(session_id, "user", user_message)
-
-    intent = classify_prompt(user_message)
-
+    result = {}
     audio_path = get_file_from_db(session_id, file_type="uploaded")
     valid_stems = {"vocals", "drums", "bass", "other"}
 
-    if intent["type"] == "separation":
-        selected_stems = intent.get("stems", [])
-        separated = []
-        silent_stems = []
-        invalid_stems = [s for s in selected_stems if s not in valid_stems]
-        selected_stems = [s for s in selected_stems if s in valid_stems]
 
-        if invalid_stems:
-            reply = f"Note: The following stems are not supported and will be ignored: {', '.join(invalid_stems)}.\n"
+    is_feedback = False
+    if session_active_task.get(session_id) == "remix":
+        feedback_keywords = ["more", "less", "bit", "again", "increase", "decrease"]
+        if any(kw in user_message.lower() for kw in feedback_keywords):
+            is_feedback = True
 
-        if audio_path and selected_stems:
-            outputs = separate_audio(audio_path, selected_stems) #are we sure we have audio path?
-            for stem_name, stem_tensor in outputs.items():
-                if stem_tensor.ndim == 3:
-                    stem_tensor = stem_tensor[0]
-                elif stem_tensor.ndim == 1:
-                    stem_tensor = stem_tensor.unsqueeze(0)
-
-                uid = uuid.uuid4().hex[:6]
-                base = os.path.splitext(os.path.basename(audio_path))[0]
-                output_name = f"{base}_{stem_name}_{uid}.wav"
-                output_path = f"separated/{output_name}"
-                torchaudio.save(output_path, stem_tensor, 44100)
-                audio = AudioSegment.from_file(output_path, format="wav")
-
-                silent_ranges = detect_silence(audio, min_silence_len=1000, silence_thresh=-40)
-                is_fully_silent = sum(end - start for start, end in silent_ranges) >= len(audio)
-
-                if is_fully_silent:
-                    silent_stems.append(stem_name)
-                else:
-                    url = f"/downloads/{output_name}"
-                    separated.append({"name": stem_name, "file_url": url})
-
-            reply = f"Separated stems: {', '.join(s['name'] for s in separated)}. You can download them now."
-            if silent_stems:
-                reply += f"Note: The following stems were detected as silent and not included: {', '.join(silent_stems)}."
+    if is_feedback:
+        print(f"[DEBUG] Detected feedback prompt for session {session_id}")
+        # Retrieve last instructions
+        last_instructions = session_last_instructions.get(session_id)
+        if not last_instructions:
+            reply = "Sorry, I don't have previous settings to adjust. Please provide a new instruction."
+            result = {"reply": reply}
         else:
-            reply = "No audio file or no valid stems selected"
-        result = {"reply": reply, "stems": separated}
-
-    # Remix flow
-    elif intent["type"] == "remix":
-        result = handle_remix(intent, session_id)
-
-    # Fallback
+            # TODO: Increment instructions intelligently based on feedback meaning
+            updated_instructions = increment_instructions_based_on_feedback(user_message, last_instructions)
+            # Call handle_remix with updated instructions
+            result = handle_remix({"type": "remix", "instructions": updated_instructions}, session_id)
     else:
-        result = {
-            "reply": "Sorry, I didn't understand your request. Try asking to extract or remix specific stems."
-        }
+        intent = classify_prompt(user_message)
+
+        if intent["type"] == "separation":
+            selected_stems = intent.get("stems", [])
+            separated = []
+            silent_stems = []
+            invalid_stems = [s for s in selected_stems if s not in valid_stems]
+            selected_stems = [s for s in selected_stems if s in valid_stems]
+
+            if invalid_stems:
+                reply = f"Note: The following stems are not supported and will be ignored: {', '.join(invalid_stems)}.\n"
+
+            if audio_path and selected_stems:
+                outputs = separate_audio(audio_path, selected_stems) #are we sure we have audio path?
+                for stem_name, stem_tensor in outputs.items():
+                    if stem_tensor.ndim == 3:
+                        stem_tensor = stem_tensor[0]
+                    elif stem_tensor.ndim == 1:
+                        stem_tensor = stem_tensor.unsqueeze(0)
+
+                    uid = uuid.uuid4().hex[:6]
+                    base = os.path.splitext(os.path.basename(audio_path))[0]
+                    output_name = f"{base}_{stem_name}_{uid}.wav"
+                    output_path = f"separated/{output_name}"
+                    torchaudio.save(output_path, stem_tensor, 44100)
+
+                    audio = AudioSegment.from_file(output_path, format="wav")
+
+                    silent_ranges = detect_silence(audio, min_silence_len=1000, silence_thresh=-40)
+                    is_fully_silent = sum(end - start for start, end in silent_ranges) >= len(audio)
+
+                    if is_fully_silent:
+                        silent_stems.append(stem_name)
+                    else:
+                        url = f"/downloads/{output_name}"
+                        separated.append({"name": stem_name, "file_url": url})
+
+                reply = f"Separated stems: {', '.join(s['name'] for s in separated)}. You can download them now."
+                if silent_stems:
+                    reply += f"Note: The following stems were detected as silent and not included: {', '.join(silent_stems)}."
+            else:
+                reply = "No audio file or no valid stems selected"
+            result = {"reply": reply, "stems": separated}
+
+        #
+        elif intent["type"] == "remix":
+            result = handle_remix(intent, session_id)
+            session_last_instructions[session_id] = intent["instructions"]
+            session_active_task[session_id] = "remix"
+
+        # Fallback
+        else:
+            result = {
+                "reply": "Sorry, I didn't understand your request. Try asking to extract or remix specific stems."
+            }
+
     save_message(session_id, "assistant", result["reply"])
     history = get_history(session_id)
 
@@ -116,9 +141,124 @@ def reset_session(request: ResetRequest):
     reset_session_db(request.session_id)
     return {"message": f"Session {request.session_id} has been cleared."}
 
+
+def increment_instructions_based_on_feedback(feedback_text: str, last_instructions: dict) -> dict:
+    """
+    Helper function to adjust instructions dynamically
+    Works with general phrases like “make vocals louder”, “more reverb on drums”, “pitch vocals up”
+    Uses last applied instructions as baseline
+    Returns updated instructions.
+
+    Volumes: Adjust ±0.1 within [0.0, 2.0] based on feedback.
+
+    Reverb: Adjust ±0.1 within [0.0, 1.0].
+
+    Pitch shift: Adjust ±1 semitone per feedback.
+
+    Compression: Switch between "low", "medium", "high" based on feedback
+    """
+
+    updated = last_instructions.copy()
+    volume_keywords = {
+        "vocals": "vocals",
+        "drums": "drums",
+        "bass": "bass",
+        "other": "other"
+    }
+    if "volume" in feedback_text or "louder" in feedback_text or "softer" in feedback_text:
+        for stem, stem_key in volume_keywords.items():
+            if stem in feedback_text:
+                if "louder" in feedback_text or "increase" in feedback_text or "more" in feedback_text:
+                    updated["volumes"][stem_key] = min(updated["volumes"].get(stem_key, 1.0) + 0.1, 2.0)
+                elif "softer" in feedback_text or "decrease" in feedback_text or "less" in feedback_text:
+                    updated["volumes"][stem_key] = max(updated["volumes"].get(stem_key, 1.0) - 0.1, 0.0)
+
+    if "reverb" in feedback_text:
+        for stem in updated["reverb"]:
+            if "more" in feedback_text or "increase" in feedback_text:
+                updated["reverb"][stem] = min(updated["reverb"].get(stem, 0.0) + 0.1, 1.0)
+            elif "less" in feedback_text or "decrease" in feedback_text:
+                updated["reverb"][stem] = max(updated["reverb"].get(stem, 0.0) - 0.1, 0.0)
+
+    if "pitch" in feedback_text:
+        for stem in updated["pitch_shift"]:
+            if "up" in feedback_text or "higher" in feedback_text or "increase" in feedback_text:
+                updated["pitch_shift"][stem] += 1
+            elif "down" in feedback_text or "lower" in feedback_text or "decrease" in feedback_text:
+                updated["pitch_shift"][stem] -= 1
+
+    compression_order = ["low", "medium", "high"]
+    if "compression" in feedback_text:
+        for stem in updated["compression"]:
+            current = updated["compression"].get(stem, "medium")
+            idx = compression_order.index(current)
+            if "more" in feedback_text or "increase" in feedback_text or "stronger" in feedback_text:
+                idx = min(idx + 1, len(compression_order) - 1)
+            elif "less" in feedback_text or "decrease" in feedback_text or "softer" in feedback_text:
+                idx = max(idx - 1, 0)
+            updated["compression"][stem] = compression_order[idx]
+
+    return updated
 """
+TODO: Add descriptive feedback, i.e. I’ve made the vocals 10% louder. Let me know if you want them even louder or softer.”
+
 TODO
 Implement caching
 GET /status — for long jobs or async audio processing or reporting what has been separated or downloaded
 GET /stems/{id} — to retrieve previously generated files
+
+
+alternative :
+
+replace is_feedback above: current heuristic-only approach with:
+if is_feedback:
+    print(f"[DEBUG] Detected feedback prompt for session {session_id}")
+    last_instructions = session_last_instructions.get(session_id)
+
+    if not last_instructions:
+        reply = "Sorry, I don't have previous settings to adjust. Please provide a new instruction."
+        result = {"reply": reply}
+    else:
+        feedback_adjustments = parse_feedback(user_message)
+        if not feedback_adjustments:
+            reply = "Sorry, I couldn't understand your feedback clearly. Please rephrase."
+            result = {"reply": reply}
+        else:
+            updated_instructions = increment_instructions_based_on_feedback(feedback_adjustments, last_instructions)
+            result = handle_remix({"type": "remix", "instructions": updated_instructions}, session_id)
+
 """
+
+def increment_instructions_based_on_feedback_phase2(feedback_adjustments: dict, last_instructions: dict) -> dict:
+    updated = last_instructions.copy()
+
+    volume_map = {
+        "slightly softer": -0.1,
+        "softer": -0.3,
+        "much softer": -0.6,
+        "mute": -1.0,
+        "slightly louder": +0.1,
+        "louder": +0.3,
+        "much louder": +0.6
+    }
+    for stem, change in feedback_adjustments.get("volumes", {}).items():
+        delta = volume_map.get(change, 0.0)
+        if delta != 0.0:
+            updated["volumes"][stem] = np.clip(updated["volumes"].get(stem, 1.0) + delta, 0.0, 2.0)
+
+    # Reverb
+    for stem, change in feedback_adjustments.get("reverb", {}).items():
+        if change == "more":
+            updated["reverb"][stem] = min(updated["reverb"].get(stem, 0.0) + 0.1, 1.0)
+        elif change == "less":
+            updated["reverb"][stem] = max(updated["reverb"].get(stem, 0.0) - 0.1, 0.0)
+
+    for stem, change in feedback_adjustments.get("pitch_shift", {}).items():
+        if change.startswith("+") or change.startswith("-"):
+            updated["pitch_shift"][stem] += int(change)
+
+    compression_order = ["low", "medium", "high"]
+    for stem, level in feedback_adjustments.get("compression", {}).items():
+        updated["compression"][stem] = level if level in compression_order else updated["compression"].get(stem, "medium")
+
+    return updated
