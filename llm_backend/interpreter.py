@@ -151,3 +151,68 @@ def classify_prompt(prompt: str) -> dict:
     except json.JSONDecodeError:
         return {"type": "separation", "stems": []}  # Fallback
 
+
+
+"""
+If is_feedback, you call this LLM parser.
+
+It returns only the deltas or adjustments needed.
+
+Then you combine these with your existing last_instructions to produce updated_instructions.
+"""
+
+def parse_feedback(feedback_text: str) -> dict:
+    system_prompt = """
+        You are a music DSP feedback interpreter assistant.
+        Based on user feedback, extract intended adjustments in structured JSON.
+        Return JSON like:
+
+        {
+          "volumes": {
+            "vocals": "louder",
+            "drums": "softer"
+          },
+          "reverb": {
+            "vocals": "more",
+            "drums": "less"
+          },
+          "pitch_shift": {
+            "vocals": "+2",
+            "drums": "-1"
+          },
+          "compression": {
+            "vocals": "high",
+            "drums": "low"
+          }
+        }
+
+        Guidelines:
+        - Only include stems that are explicitly mentioned in feedback.
+        - For **volumes**, use one of: "slightly softer", "softer", "much softer", "mute", "slightly louder", "louder", "much louder".
+        - For **pitch_shift**, return semitone adjustments with '+' or '-' (e.g. '+2' or '-1').
+        - For **reverb**, use: "less", "more".
+        - For **compression**, use: "low", "medium", "high".
+        - If feedback does not mention an effect for a stem, omit that effect.
+        - If nothing is detected, return an empty JSON object {}.
+
+        Return only valid JSON as above. No explanations.
+    """
+
+    chat = [
+        ChatCompletionSystemMessageParam(role="system", content=system_prompt),
+        ChatCompletionUserMessageParam(role="user", content=feedback_text)
+    ]
+
+    completion = client.chat.completions.create(
+        model="gpt-4",
+        messages=chat,
+        temperature=0,
+    )
+    response = completion.choices[0].message.content
+
+    try:
+        return json.loads(response)
+    except json.JSONDecodeError:
+        return {}
+
+

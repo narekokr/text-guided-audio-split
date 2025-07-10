@@ -9,16 +9,21 @@ from pydub import AudioSegment
 import os
 import tempfile
 
+
+session_last_instructions = {}
+session_active_task = {}
+
 def handle_remix(intent: dict, session_id: str) -> dict:
     audio_path = get_file_from_db(session_id) #retrieves audio file associated with this session
     if not audio_path:
         return {"reply": " No audio file found for remixing."}
 
     all_stems = ["vocals", "drums", "bass", "other"]
-    outputs = separate_audio(audio_path, all_stems)
+    outputs = separate_audio(audio_path, all_stems) #do we need separation here?
 
     stem_arrays = {} # dictionary to hold NumPy arrays for each stem, and sets the sample rate to 44.1kHz
     sr = 44100
+    last_instr = session_last_instructions.get(session_id) #in case of feedback prompt, we just increment/decrement something
 
     for name in all_stems:
         tensor = outputs[name]
@@ -45,16 +50,8 @@ def handle_remix(intent: dict, session_id: str) -> dict:
     # Truncate and mix
     #stem_arrays[name][:, :min_len] - retrieves the stem waveform
     #volumes.get(name, 1.0) retrieves the volume multiplier, defaults to 1.0 if not specified
-    #multiplying these ensure that waveform is scaled by this factor, which is gain scaling, i.e. volume adjustment
 
     mix = sum(adjusted_stems)
-
-    """
-         = sum(
-            np.clip(stem_arrays[name][:, :min_len] * volumes.get(name, 1.0), -1.0, 1.0)
-            for name in all_stems
-        )
-    """
     mix = np.clip(mix, -1.0, 1.0) #to ensure that combined mix does not exceed the allowed amplitude limits
     print(f"[DEBUG] Naming remix with intent: {intent}")
     output_name = generate_remix_name(intent)
@@ -69,7 +66,6 @@ def handle_remix(intent: dict, session_id: str) -> dict:
     if reverb_instr:
         for stem, amount in reverb_instr.items():
             if stem in all_stems and amount > 0:
-                #output_path = apply_reverb(output_path, output_path, reverberance=amount * 100)  # scale if needed
                 audio = apply_reverb_pydub(audio, reverberance=amount)
 
     pitch_instr = intent["instructions"].get("pitch_shift", {})
@@ -78,10 +74,8 @@ def handle_remix(intent: dict, session_id: str) -> dict:
     if pitch_instr:
         for stem, semitones in pitch_instr.items():
             if stem in all_stems:
-                #output_path = change_pitch_pydub(audio, n_steps=semitones) #(output_path, output_path, n_steps=semitones)
                 audio = change_pitch_pydub(audio, n_steps=semitones)
 
-    #compression
     comp_instr = intent["instructions"].get("compression", {})
     print(f"DEBUG - Compression instructions: {comp_instr}")
 
@@ -95,6 +89,9 @@ def handle_remix(intent: dict, session_id: str) -> dict:
                 elif level == "high":
                     audio = apply_compression_pydub(audio, threshold=-10, ratio=8)
     audio.export(output_path, format="wav")
+
+    session_last_instructions[session_id] = intent["instructions"]
+
     return {
         "reply": f"Remix created based on instructions.",
         "remix": {"file_url": f"/downloads/{output_name}"}
@@ -143,20 +140,14 @@ def apply_gain_scaling(stem_arrays, volumes, min_len):
 
 
 def apply_reverb_pydub(audio: AudioSegment, reverberance: float = 50.0):
-    """
-    Apply reverb using ffmpeg through pydub
-    """
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_input:
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_output:
             try:
-                # Export to temp file
                 audio.export(temp_input.name, format="wav")
 
-                # Apply reverb using ffmpeg
                 # Scale reverberance to appropriate values for ffmpeg
                 reverb_level = min(reverberance / 100.0, 1.0)  # Convert to 0-1 range
 
-                # Use ffmpeg's aecho filter for reverb-like effect
                 from pydub.utils import which
                 ffmpeg_path = which("ffmpeg")
 
@@ -169,25 +160,19 @@ def apply_reverb_pydub(audio: AudioSegment, reverberance: float = 50.0):
 
                 subprocess.run(cmd, check=True, capture_output=True)
 
-                # Load processed audio
                 return AudioSegment.from_wav(temp_output.name)
 
             finally:
-                # Clean up temp files
                 for temp_file in [temp_input.name, temp_output.name]:
                     if os.path.exists(temp_file):
                         os.unlink(temp_file)
 
 
 def change_pitch_pydub(audio: AudioSegment, n_steps: float):
-    """
-    Change pitch using librosa (more reliable than ffmpeg for pitch shifting)
-    """
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
         try:
             audio.export(temp_file.name, format="wav")
 
-            # Use librosa for pitch shifting (more reliable)
             y, sr = librosa.load(temp_file.name, sr=None)
             y_shifted = librosa.effects.pitch_shift(y, sr=sr, n_steps=n_steps)
 
@@ -205,21 +190,15 @@ def change_pitch_pydub(audio: AudioSegment, n_steps: float):
 
 def apply_compression_pydub(audio: AudioSegment, threshold: float = -20, ratio: float = 3,
                             attack: float = 20, release: float = 250):
-    """
-    Apply compression using ffmpeg through pydub
-    """
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_input:
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_output:
             try:
-                # Export to temp file
                 audio.export(temp_input.name, format="wav")
 
-                # Apply compression using ffmpeg
                 from pydub.utils import which
                 ffmpeg_path = which("ffmpeg")
 
                 import subprocess
-                # Convert parameters for ffmpeg compand filter
                 attack_sec = attack / 1000.0  # Convert ms to seconds
                 release_sec = release / 1000.0
 
@@ -231,12 +210,9 @@ def apply_compression_pydub(audio: AudioSegment, threshold: float = -20, ratio: 
                 ]
 
                 subprocess.run(cmd, check=True, capture_output=True)
-
-                # Load processed audio
                 return AudioSegment.from_wav(temp_output.name)
 
             finally:
-                # Clean up temp files
                 for temp_file in [temp_input.name, temp_output.name]:
                     if os.path.exists(temp_file):
                         os.unlink(temp_file)
@@ -274,10 +250,3 @@ def generate_remix_name(intent: dict) -> str:
     type_str = "_".join(remix_type) if remix_type else "basic"
     output_name = f"remix_{type_str}_{uuid.uuid4().hex[:6]}.wav"
     return output_name
-
-
-"""
-#Note:
-sample prompts for testing: add heavy reverb to vocals, pitch vocal up by 2 semitones, compress vocals to make them tighter
-Reverb and pitch shifting do not require equal lengths individually, but when we mix stems back together (e.g., vocals + drums) they must match in sample length. 
-"""
