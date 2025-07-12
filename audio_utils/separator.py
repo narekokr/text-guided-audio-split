@@ -37,17 +37,14 @@ def separate_audio(filepath: str, selected_stems: list[str]):
     if not selected_stems:
         raise ValueError("No valid stems found in prompt. Please specify vocals, drums, bass, or other.")
 
-    #Demucs separation
     separated = apply_model(model, wav, device="cpu")  # Shape: [1, 4, 2, T]
     print(f"Model output shape: {separated.shape}")
 
     # Remove batch dim: shape becomes [4, 2, T]
     separated = separated[0]
 
-    # Demucs standard stem order
     all_stems = ["drums", "bass", "other", "vocals"]
 
-    # Map and filter the stems
     filtered_stems = {
         stem_name: separated[i]
         for i, stem_name in enumerate(all_stems)
