@@ -1,6 +1,8 @@
 import uuid
+from typing import List
+
 import torchaudio
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Path, Query
 from pydub import AudioSegment
 from pydub.silence import detect_silence
 from audio_utils.separator import separate_audio
@@ -8,12 +10,20 @@ from audio_utils.remix import handle_remix, session_last_instructions, session_a
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from fastapi.staticfiles import StaticFiles
+
+from db_core.session import (
+    get_user_sessions,
+    get_session_and_verify_user, get_messages_with_files_for_session_raw,
+)
+from db_core.config import get_session
+from db_core.models import Message, AppSession
+
+
 from llm_backend.session_manager import (
-    get_or_create_session,
     get_history,
     save_message,
     get_file_from_db,
-    reset_session as reset_session_db
+    get_or_create_session, save_file_to_db
 )
 
 import openai
@@ -44,14 +54,15 @@ app.mount("/downloads", StaticFiles(directory="separated"), name="downloads")
 def chat(request: ChatRequest):
     session_id = request.session_id
     user_message = request.message
-    get_or_create_session(session_id)
+    user_id = request.user_id
+    get_or_create_session(session_id, user_id)
     save_message(session_id, "user", user_message)
     result = {}
     summary = ""
     audio_path = get_file_from_db(session_id, file_type="uploaded")
     valid_stems = {"vocals", "drums", "bass", "other"}
 
-
+    is_remix = False
     is_feedback = False
     if session_active_task.get(session_id) == "remix":
         #feedback_keywords = ["more", "less", "bit", "again", "increase", "decrease"]
@@ -70,6 +81,7 @@ def chat(request: ChatRequest):
         else:
             updated_instructions = increment_instructions_based_on_feedback(user_message, last_instructions)
             result = handle_remix({"type": "remix", "instructions": updated_instructions}, session_id)
+            is_remix = True
     else:
         intent = classify_prompt(user_message)
 
@@ -121,6 +133,7 @@ def chat(request: ChatRequest):
             result = {"reply": reply, "stems": separated}
 
         elif intent["type"] == "remix":
+            is_remix = True
             instructions = intent.get("instructions")
             if instructions:
                 result = handle_remix(intent, session_id)
@@ -137,7 +150,17 @@ def chat(request: ChatRequest):
                 "reply": "Sorry, I didn't understand your request. Try asking to extract or remix specific stems."
             }
 
-    save_message(session_id, "assistant", result["reply"])
+
+    message_id = save_message(session_id, "assistant", result["reply"])
+    if is_remix:
+        remix = result.get("remix")
+        if remix:
+            save_file_to_db(session_id, file_type="remix", path=remix['file_url'], message_id=message_id)
+    else:
+        stems = result.get("stems", [])
+        for stem in stems:
+            save_file_to_db(session_id, file_type="stem", path=stem['file_url'], stem=stem['name'], message_id=message_id)
+
     history = get_history(session_id)
 
     final_reply = summary if summary else result['reply']
@@ -150,9 +173,23 @@ def chat(request: ChatRequest):
     }
 
 @app.post("/reset")
-def reset_session(request: ResetRequest):
-    reset_session_db(request.session_id)
-    return {"message": f"Session {request.session_id} has been cleared."}
+def reset_session_endpoint(request: ResetRequest):
+    with get_session() as db:
+        session_to_delete = get_session_and_verify_user(db, request.session_id, request.user_id)
+        if not session_to_delete:
+            raise HTTPException(status_code=404, detail="Session not found or does not belong to user.")
+
+        db.delete(session_to_delete)
+        db.commit()
+
+    return {"message": f"Session {request.session_id} for user {request.user_id} has been cleared."}
+
+
+@app.get("/user/{user_id}/sessions", response_model=List[AppSession])
+async def get_user_chat_sessions(user_id: str = Path(...)):
+    with get_session() as db:
+        sessions = get_user_sessions(db, user_id)
+        return sessions
 
 
 def increment_instructions_based_on_feedback(feedback_text: str, last_instructions: dict) -> dict:
@@ -257,3 +294,19 @@ def validate_eq_and_filter(intent):
             raise ValueError(f"Missing cutoff for {f['type']} filter on {stem}")
         if f["type"] == "bandpass" and not all(k in f for k in ("low_cutoff", "high_cutoff")):
             raise ValueError(f"Incomplete bandpass filter for {stem}")
+
+
+@app.get("/session/{session_id}/history")
+async def get_session_message_history(
+        session_id: str = Path(...),
+        user_id: str = Query(..., description="User ID to verify session ownership")
+):
+    with get_session() as db:
+        session = get_session_and_verify_user(db, session_id, user_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found or does not belong to user.")
+
+        messages = get_messages_with_files_for_session_raw(db, session.id)
+        audio_path = '/downloads/' + get_file_from_db(session_id, file_type="uploaded")[10:]
+
+        return {"messages": messages, "audio_path": audio_path}

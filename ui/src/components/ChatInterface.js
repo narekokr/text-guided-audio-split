@@ -1,9 +1,10 @@
 // components/ChatInterface.js
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
+import AudioOutput from './AudioOutput'; // Assuming AudioOutput is in the same directory
 import './ChatInterface.css'; // For styling
 
-function ChatInterface({ chatHistory, onSendMessage, isProcessing, chatContainerRef }) {
-    const [message, setMessage] = useState('');
+function ChatInterface({ chatHistory, onSendMessage, isProcessing, chatContainerRef, apiBaseUrl }) {
+    const [message, setMessage] = React.useState('');
 
     const handleSubmit = (event) => {
         event.preventDefault();
@@ -19,7 +20,19 @@ function ChatInterface({ chatHistory, onSendMessage, isProcessing, chatContainer
             <div className="chat-container" ref={chatContainerRef}>
                 {chatHistory.map((msg, index) => (
                     <div key={index} className={`chat-message ${msg.role}-msg`}>
-                        {msg.content}
+                        <div className="message-content">
+                            {msg.content}
+                        </div>
+                        {/* If the message has audio files, render the AudioOutput component for it */}
+                        {(msg.stems?.length > 0 || msg.remix) && (
+                            <div className="message-audio-output">
+                                <AudioOutput
+                                    stems={msg.stems || []}
+                                    remix={msg.remix || null}
+                                    apiBaseUrl={apiBaseUrl}
+                                />
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>

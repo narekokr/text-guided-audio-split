@@ -16,11 +16,13 @@ class File(SQLModel, table=True):
     file_type: str
     stem: Optional[str]
     path: str
+    message_id: Optional[int]
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
     session: Optional["AppSession"] = Relationship(back_populates="files")
 
 class AppSession(SQLModel, table=True):
     id: str = Field(primary_key=True)
+    user_id: str = Field(index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     messages: List[Message] = Relationship(back_populates="session")
     files: List[File] = Relationship(back_populates="session")
@@ -40,6 +42,7 @@ Base = declarative_base() #SQLAlchemy turns Python classes into db_core tables.
 class AppSession(Base):
     __tablename__ = "sessions"
     id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.datetime.now)
     messages = relationship(
         "Message",

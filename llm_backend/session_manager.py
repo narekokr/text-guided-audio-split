@@ -2,11 +2,11 @@ from db_core.models import AppSession, Message, File
 from db_core.config import get_session
 
 
-def get_or_create_session(session_id: str):
+def get_or_create_session(session_id: str, user_id: str):
     with get_session() as db:
         session = db.get(AppSession, session_id)
         if not session:
-            session = AppSession(id=session_id)
+            session = AppSession(id=session_id, user_id=user_id)
             db.add(session)
             db.commit()
         return session
@@ -26,6 +26,8 @@ def save_message(session_id: str, role: str, content: str):
         msg = Message(session_id=session_id, role=role, content=content)
         db.add(msg)
         db.commit()
+        db.refresh(msg)
+        return msg.id
 
 def reset_session(session_id: str):
     with get_session() as db:
@@ -44,9 +46,9 @@ def get_file_from_db(session_id: str, file_type: str = "uploaded"):
         )
         return file.path if file else None
 
-def save_file_to_db(session_id: str, file_type: str, path: str, stem:  str):
+def save_file_to_db(session_id: str, file_type: str, path: str, stem: str = None, message_id: int = None):
     with get_session() as db:
-        file = File(session_id=session_id, file_type=file_type, path=path, stem=stem)
+        file = File(session_id=session_id, file_type=file_type, path=path, stem=stem, message_id=message_id)
         db.add(file)
         db.commit()
 
