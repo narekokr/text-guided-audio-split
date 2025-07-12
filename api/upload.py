@@ -15,12 +15,10 @@ async def upload(file: UploadFile, session_id: str = Form(...)):
     with open(original_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Convert to WAV
     audio = AudioSegment.from_file(original_path)
     converted_path = original_path.rsplit(".", 1)[0] + "_converted.wav"
     audio.export(converted_path, format="wav")
 
-    # Ensure session exists
     #TODO better approach is to wrap it in a decorator or create a wrapper service that every endpoint can call first so I need to add this after demo.
     with get_session() as db:
         ensure_session_exists(db, session_id)

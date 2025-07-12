@@ -17,7 +17,7 @@ from llm_backend.session_manager import (
 )
 
 import openai
-from llm_backend.interpreter import classify_prompt
+from llm_backend.interpreter import classify_prompt, describe_audio_edit, parse_feedback
 from models.chat_request import ChatRequest
 from api.upload import router as upload_router
 from models.reset_request import ResetRequest
@@ -47,33 +47,37 @@ def chat(request: ChatRequest):
     get_or_create_session(session_id)
     save_message(session_id, "user", user_message)
     result = {}
+    summary = ""
     audio_path = get_file_from_db(session_id, file_type="uploaded")
     valid_stems = {"vocals", "drums", "bass", "other"}
 
 
     is_feedback = False
     if session_active_task.get(session_id) == "remix":
-        feedback_keywords = ["more", "less", "bit", "again", "increase", "decrease"]
-        if any(kw in user_message.lower() for kw in feedback_keywords):
+        #feedback_keywords = ["more", "less", "bit", "again", "increase", "decrease"]
+        feedback_adjustments = parse_feedback(user_message)
+        if feedback_adjustments:  # not empty dict
             is_feedback = True
+       # if any(kw in user_message.lower() for kw in feedback_keywords):
+       # is_feedback = True
 
     if is_feedback:
         print(f"[DEBUG] Detected feedback prompt for session {session_id}")
-        # Retrieve last instructions
         last_instructions = session_last_instructions.get(session_id)
         if not last_instructions:
             reply = "Sorry, I don't have previous settings to adjust. Please provide a new instruction."
             result = {"reply": reply}
         else:
-            # TODO: Increment instructions intelligently based on feedback meaning
             updated_instructions = increment_instructions_based_on_feedback(user_message, last_instructions)
-            # Call handle_remix with updated instructions
             result = handle_remix({"type": "remix", "instructions": updated_instructions}, session_id)
     else:
         intent = classify_prompt(user_message)
 
         if intent["type"] == "separation":
             selected_stems = intent.get("stems", [])
+            if not selected_stems:
+                selected_stems = list(valid_stems)
+
             separated = []
             silent_stems = []
             invalid_stems = [s for s in selected_stems if s not in valid_stems]
@@ -83,7 +87,7 @@ def chat(request: ChatRequest):
                 reply = f"Note: The following stems are not supported and will be ignored: {', '.join(invalid_stems)}.\n"
 
             if audio_path and selected_stems:
-                outputs = separate_audio(audio_path, selected_stems) #are we sure we have audio path?
+                outputs = separate_audio(audio_path, selected_stems)
                 for stem_name, stem_tensor in outputs.items():
                     if stem_tensor.ndim == 3:
                         stem_tensor = stem_tensor[0]
@@ -108,18 +112,25 @@ def chat(request: ChatRequest):
                         separated.append({"name": stem_name, "file_url": url})
 
                 reply = f"Separated stems: {', '.join(s['name'] for s in separated)}. You can download them now."
+                stem_names = [s["name"] for s in separated]
+                summary = describe_audio_edit("separation", extracted_stems=stem_names)
                 if silent_stems:
                     reply += f"Note: The following stems were detected as silent and not included: {', '.join(silent_stems)}."
             else:
                 reply = "No audio file or no valid stems selected"
             result = {"reply": reply, "stems": separated}
 
-        #
         elif intent["type"] == "remix":
-            result = handle_remix(intent, session_id)
-            session_last_instructions[session_id] = intent["instructions"]
-            session_active_task[session_id] = "remix"
-
+            instructions = intent.get("instructions")
+            if instructions:
+                result = handle_remix(intent, session_id)
+                session_last_instructions[session_id] = intent["instructions"]
+                session_active_task[session_id] = "remix"
+                summary = describe_audio_edit("remix", instructions=intent["instructions"])
+            else:
+                result = {
+                    "reply": "I couldn't detect any specific remix adjustments. Try saying something like 'make the vocals louder' or 'add reverb to drums'."
+                }
         # Fallback
         else:
             result = {
@@ -129,8 +140,10 @@ def chat(request: ChatRequest):
     save_message(session_id, "assistant", result["reply"])
     history = get_history(session_id)
 
+    final_reply = summary if summary else result['reply']
+
     return {
-        "reply": result["reply"],
+        "reply": final_reply,
         "stems": result.get("stems", []),
         "remix": result.get("remix"),
         "history": history
@@ -145,7 +158,7 @@ def reset_session(request: ResetRequest):
 def increment_instructions_based_on_feedback(feedback_text: str, last_instructions: dict) -> dict:
     """
     Helper function to adjust instructions dynamically
-    Works with general phrases like “make vocals louder”, “more reverb on drums”, “pitch vocals up”
+    Works with general phrases like “make vocals louder” “more reverb on drums” “pitch vocals up”
     Uses last applied instructions as baseline
     Returns updated instructions.
 
@@ -199,35 +212,6 @@ def increment_instructions_based_on_feedback(feedback_text: str, last_instructio
             updated["compression"][stem] = compression_order[idx]
 
     return updated
-"""
-TODO: Add descriptive feedback, i.e. I’ve made the vocals 10% louder. Let me know if you want them even louder or softer.”
-
-TODO
-Implement caching
-GET /status — for long jobs or async audio processing or reporting what has been separated or downloaded
-GET /stems/{id} — to retrieve previously generated files
-
-
-alternative :
-
-replace is_feedback above: current heuristic-only approach with:
-if is_feedback:
-    print(f"[DEBUG] Detected feedback prompt for session {session_id}")
-    last_instructions = session_last_instructions.get(session_id)
-
-    if not last_instructions:
-        reply = "Sorry, I don't have previous settings to adjust. Please provide a new instruction."
-        result = {"reply": reply}
-    else:
-        feedback_adjustments = parse_feedback(user_message)
-        if not feedback_adjustments:
-            reply = "Sorry, I couldn't understand your feedback clearly. Please rephrase."
-            result = {"reply": reply}
-        else:
-            updated_instructions = increment_instructions_based_on_feedback(feedback_adjustments, last_instructions)
-            result = handle_remix({"type": "remix", "instructions": updated_instructions}, session_id)
-
-"""
 
 def increment_instructions_based_on_feedback_phase2(feedback_adjustments: dict, last_instructions: dict) -> dict:
     updated = last_instructions.copy()
@@ -246,7 +230,6 @@ def increment_instructions_based_on_feedback_phase2(feedback_adjustments: dict, 
         if delta != 0.0:
             updated["volumes"][stem] = np.clip(updated["volumes"].get(stem, 1.0) + delta, 0.0, 2.0)
 
-    # Reverb
     for stem, change in feedback_adjustments.get("reverb", {}).items():
         if change == "more":
             updated["reverb"][stem] = min(updated["reverb"].get(stem, 0.0) + 0.1, 1.0)
@@ -262,3 +245,15 @@ def increment_instructions_based_on_feedback_phase2(feedback_adjustments: dict, 
         updated["compression"][stem] = level if level in compression_order else updated["compression"].get(stem, "medium")
 
     return updated
+
+def validate_eq_and_filter(intent):
+    for stem, eq in intent.get("instructions", {}).get("eq", {}).items():
+        if not all(k in eq for k in ("frequency", "width", "gain_db")):
+            raise ValueError(f"Incomplete EQ params for stem {stem}")
+    for stem, f in intent.get("instructions", {}).get("filter", {}).items():
+        if "type" not in f:
+            raise ValueError(f"Missing filter type for stem {stem}")
+        if f["type"] in ("lowpass", "highpass") and "cutoff" not in f:
+            raise ValueError(f"Missing cutoff for {f['type']} filter on {stem}")
+        if f["type"] == "bandpass" and not all(k in f for k in ("low_cutoff", "high_cutoff")):
+            raise ValueError(f"Incomplete bandpass filter for {stem}")

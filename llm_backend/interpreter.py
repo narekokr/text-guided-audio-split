@@ -129,9 +129,24 @@ def classify_prompt(prompt: str) -> dict:
             - If user says "compression" or "add compression": "medium"
             - If user says "strong compression" or "heavy compression": "high"
             - If unspecified, set to "medium".
-
-        Return only valid JSON as above. No explanations.
-
+        
+        For filter:
+            - Detect user requests like "add a low-pass filter at 4kHz" or "apply high-pass at 120Hz".
+            - Return JSON with "filter" key, e.g.:
+              "filter": {
+                "vocals": {
+                  "type": "lowpass",
+                  "cutoff": 4000
+                }
+              }
+            
+            For band-pass (e.g. "telephone effect"):
+            - Return "type": "bandpass", with "low_cutoff" and "high_cutoff".
+            
+            For eq:
+            - Parse phrases like "boost 3kHz by 5dB with width 1.0" or "cut 100Hz by -3dB".
+            - Return JSON with frequency (Hz), width (Q), and gain_db (dB).
+            
         """
 
     chat = [
@@ -142,7 +157,7 @@ def classify_prompt(prompt: str) -> dict:
     completion = client.chat.completions.create(
         model="gpt-4",
         messages=chat,
-        temperature=0,
+        temperature=0.5,
     )
     response = completion.choices[0].message.content
 
@@ -150,16 +165,6 @@ def classify_prompt(prompt: str) -> dict:
         return json.loads(response)
     except json.JSONDecodeError:
         return {"type": "separation", "stems": []}  # Fallback
-
-
-
-"""
-If is_feedback, you call this LLM parser.
-
-It returns only the deltas or adjustments needed.
-
-Then you combine these with your existing last_instructions to produce updated_instructions.
-"""
 
 def parse_feedback(feedback_text: str) -> dict:
     system_prompt = """
@@ -206,7 +211,7 @@ def parse_feedback(feedback_text: str) -> dict:
     completion = client.chat.completions.create(
         model="gpt-4",
         messages=chat,
-        temperature=0,
+        temperature=0.5
     )
     response = completion.choices[0].message.content
 
@@ -216,3 +221,35 @@ def parse_feedback(feedback_text: str) -> dict:
         return {}
 
 
+def describe_audio_edit(task_type: str, instructions: dict = None, extracted_stems: list[str] = None) -> str:
+    system_prompt = """
+       You are an assistant summarizing audio processing actions. Given the task type ("separation" or "remix"), and optional parameters, return a short, natural sentence describing what was done.
+
+       Guidelines:
+       - If task is "separation", describe which stems were extracted (e.g., vocals, drums).
+       - If task is "remix", describe only the meaningful DSP adjustments applied (volume, pitch, reverb, compression, filters, EQ).
+       - Use musical and user-friendly language.
+       - Ignore unchanged/default stems (e.g., volumes of 1.0 or effects not applied).
+       - Keep it short and clear (1-2 sentences).
+       - Don’t say "the user asked for" — speak as if you applied it.
+       """
+
+    user_prompt = {
+        "task_type": task_type,
+        "instructions": instructions,
+        "extracted_stems": extracted_stems
+    }
+
+    chat = [
+        ChatCompletionSystemMessageParam(role="system", content=system_prompt),
+        ChatCompletionUserMessageParam(role="user", content=json.dumps(user_prompt))
+    ]
+
+    completion = client.chat.completions.create(
+        model="gpt-4",
+        messages=chat,
+        temperature=0.5,
+    )
+    response = completion.choices[0].message.content.strip()
+
+    return response

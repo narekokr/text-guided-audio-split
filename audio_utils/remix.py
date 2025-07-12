@@ -39,7 +39,6 @@ def handle_remix(intent: dict, session_id: str) -> dict:
     print(f"DEBUG - Full intent: {intent}")
     print(f"DEBUG - Instructions: {instructions}")
     min_len = min(arr.shape[1] for arr in stem_arrays.values())
-    # Only apply gain scaling if volumes were specified
 
     if volumes:
         adjusted_stems = apply_gain_scaling(stem_arrays, volumes, min_len)
@@ -48,7 +47,6 @@ def handle_remix(intent: dict, session_id: str) -> dict:
         adjusted_stems = [arr[:, :min_len] for arr in stem_arrays.values()]
 
     # Truncate and mix
-    #stem_arrays[name][:, :min_len] - retrieves the stem waveform
     #volumes.get(name, 1.0) retrieves the volume multiplier, defaults to 1.0 if not specified
 
     mix = sum(adjusted_stems)
@@ -67,6 +65,38 @@ def handle_remix(intent: dict, session_id: str) -> dict:
         for stem, amount in reverb_instr.items():
             if stem in all_stems and amount > 0:
                 audio = apply_reverb_pydub(audio, reverberance=amount)
+
+    eq_instr = intent["instructions"].get("eq", {})
+    print(f"DEBUG - EQ instructions: {eq_instr}")
+
+    if eq_instr:
+        for stem, eq_settings in eq_instr.items():
+            if stem in all_stems:
+                freq = eq_settings.get("frequency")
+                width = eq_settings.get("width")
+                gain = eq_settings.get("gain_db")
+                if freq and width and gain is not None:
+                    audio = apply_eq_pydub(audio, frequency=freq, width=width, gain_db=gain)
+
+    # Apply filter
+    filter_instr = intent["instructions"].get("filter", {})
+    print(f"DEBUG - Filter instructions: {filter_instr}")
+
+    if filter_instr:
+        for stem, f_settings in filter_instr.items():
+            if stem in all_stems:
+                ftype = f_settings.get("type")
+                if ftype == "lowpass" or ftype == "highpass":
+                    cutoff = f_settings.get("cutoff")
+                    if cutoff:
+                        audio = apply_filter(audio, filter_type=ftype, cutoff=cutoff)
+                elif ftype == "bandpass":
+                    # Optional enhancement: use two filters
+                    low = f_settings.get("low_cutoff")
+                    high = f_settings.get("high_cutoff")
+                    if low and high:
+                        audio = apply_filter(audio, "highpass", cutoff=low)
+                        audio = apply_filter(audio, "lowpass", cutoff=high)
 
     pitch_instr = intent["instructions"].get("pitch_shift", {})
     print(f"DEBUG - Pitch instructions: {pitch_instr}")
@@ -93,7 +123,7 @@ def handle_remix(intent: dict, session_id: str) -> dict:
     session_last_instructions[session_id] = intent["instructions"]
 
     return {
-        "reply": f"Remix created based on instructions.",
+        "reply": f"Remix is created based on instructions.",
         "remix": {"file_url": f"/downloads/{output_name}"}
     }
 
@@ -250,3 +280,66 @@ def generate_remix_name(intent: dict) -> str:
     type_str = "_".join(remix_type) if remix_type else "basic"
     output_name = f"remix_{type_str}_{uuid.uuid4().hex[:6]}.wav"
     return output_name
+
+"""
+Boost 100 Hz for bass,
+
+Cut 2 kHz to reduce harshness in vocals,
+
+Boost 12 kHz to add "air" or brightness.
+"""
+
+def apply_eq_pydub(audio: AudioSegment, frequency: float, width: float, gain_db: float):
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_input:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_output:
+            try:
+                audio.export(temp_input.name, format="wav")
+
+                from pydub.utils import which
+                ffmpeg_path = which("ffmpeg")
+                import subprocess
+
+                cmd = [
+                    ffmpeg_path, "-i", temp_input.name,
+                    "-af", f"equalizer=f={frequency}:t=q:w={width}:g={gain_db}",
+                    "-y", temp_output.name
+                ]
+
+                subprocess.run(cmd, check=True, capture_output=True)
+                return AudioSegment.from_wav(temp_output.name)
+
+            finally:
+                for temp_file in [temp_input.name, temp_output.name]:
+                    if os.path.exists(temp_file):
+                        os.unlink(temp_file)
+
+def apply_filter(audio: AudioSegment, filter_type="lowpass", cutoff=5000):
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_input:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_output:
+            try:
+                audio.export(temp_input.name, format="wav")
+                from pydub.utils import which
+                ffmpeg_path = which("ffmpeg")
+
+                import subprocess
+
+                if filter_type == "lowpass":
+                    af = f"lowpass=f={cutoff}"
+                elif filter_type == "highpass":
+                    af = f"highpass=f={cutoff}"
+                else:
+                    raise ValueError("Unsupported filter type.")
+
+                cmd = [
+                    ffmpeg_path, "-i", temp_input.name,
+                    "-af", af,
+                    "-y", temp_output.name
+                ]
+
+                subprocess.run(cmd, check=True, capture_output=True)
+                return AudioSegment.from_wav(temp_output.name)
+
+            finally:
+                for temp_file in [temp_input.name, temp_output.name]:
+                    if os.path.exists(temp_file):
+                        os.unlink(temp_file)
