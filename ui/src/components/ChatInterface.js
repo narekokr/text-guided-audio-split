@@ -16,26 +16,29 @@ function ChatInterface({ chatHistory, onSendMessage, isProcessing, chatContainer
 
     return (
         <div className="chat-interface">
-            <hr />
-            <div className="chat-container" ref={chatContainerRef}>
-                {chatHistory.map((msg, index) => (
-                    <div key={index} className={`chat-message ${msg.role}-msg`}>
-                        <div className="message-content">
-                            {msg.content}
-                        </div>
-                        {/* If the message has audio files, render the AudioOutput component for it */}
-                        {(msg.stems?.length > 0 || msg.remix) && (
-                            <div className="message-audio-output">
-                                <AudioOutput
-                                    stems={msg.stems || []}
-                                    remix={msg.remix || null}
-                                    apiBaseUrl={apiBaseUrl}
-                                />
+        <div className="chat-container" ref={chatContainerRef}>
+                        {chatHistory.map((msg, index) => (
+                            <div key={index} className={`chat-message-wrapper ${msg.role}-wrapper`}>
+
+                                {msg.role === 'user' ? (
+                                    <div className="chat-message user-msg">
+                                        {msg.content}
+                                    </div>
+                                ) : (
+                                    <div className="assistant-content-container">
+                                        {msg.content && <div className="assistant-text">{msg.content}</div>}
+                                        {(msg.stems?.length > 0 || msg.remix) && (
+                                            <AudioOutput
+                                                stems={msg.stems || []}
+                                                remix={msg.remix || null}
+                                                apiBaseUrl={apiBaseUrl}
+                                            />
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                        )}
+                        ))}
                     </div>
-                ))}
-            </div>
 
             <form onSubmit={handleSubmit} className="chat-form">
                 <input

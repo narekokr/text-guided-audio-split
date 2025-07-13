@@ -396,6 +396,163 @@ h1 {
     width: 100vw;
 }
 
+/* --- Added & Updated Styles for Gemini-like Session List --- */
+
+.conversations-history h3 {
+    padding: 0 10px; /* Align with session items */
+    margin-bottom: 10px;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.conversations-history .no-conversations-msg {
+    color: var(--text-secondary);
+    text-align: center;
+    font-size: 0.9em;
+    padding: 0 10px;
+}
+
+ul.session-list {
+    list-style-type: none; /* Remove default bullet points */
+    padding: 0;
+    margin: 0;
+    max-height: calc(100vh - 250px); /* Example height, adjust as needed */
+    overflow-y: auto; /* Add scroll for long lists */
+}
+
+li.session-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 15px;
+    margin: 4px 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    position: relative; /* Needed for positioning the delete button */
+}
+
+li.session-item:hover {
+    background-color: var(--chat-bg-assistant);
+}
+
+li.session-item.active {
+    background-color: var(--primary-blue-dark);
+    color: white;
+}
+
+.session-date {
+    font-size: 0.9em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none; /* Make text non-interactive so click goes to parent */
+}
+
+.session-delete-button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 5px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+li.session-item:hover .session-delete-button {
+    opacity: 1; /* Show on hover */
+}
+
+.session-delete-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--error-color);
+}
+
+/* Ensure active item's text color is readable */
+li.session-item.active .session-date {
+    color: white;
+}
+
+li.session-item.active .session-delete-button {
+    color: white;
+    opacity: 1; /* Keep visible on active item */
+}
+
+/* Small screen adjustments */
+@media (max-width: 768px) {
+    .conversations-history {
+        display: block; /* Show history on mobile */
+        max-height: 150px; /* Give it a max height */
+        overflow-y: auto;
+    }
+    ul.session-list {
+        max-height: none; /* Remove height constraint inside a scrolling parent */
+    }
+}
+/* Add this to App.css */
+
+/* --- New Content Section Card Style --- */
+.content-section {
+    background-color: var(--sidebar-bg); /* A slightly different background */
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 25px;
+    margin-top: 25px; /* This creates the space between sections */
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.content-section h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.1em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 15px;
+}
+
+/* --- Styles for the components inside the cards --- */
+.output-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.audio-item {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.audio-item strong {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.audio-player {
+    width: 100%;
+}
+
+.download-btn {
+    align-self: flex-start; /* Align button to the left */
+    padding: 8px 16px;
+    background-color: var(--primary-blue);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.download-btn:hover {
+    background-color: var(--primary-blue-dark);
+}
 /* --- Responsive Adjustments --- */
 @media (max-width: 768px) {
     .app-layout {

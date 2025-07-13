@@ -119,3 +119,204 @@
     cursor: not-allowed;
     box-shadow: none;
 }
+
+/* src/components/ChatInterface.css */
+
+/* --- Main container for the entire chat experience --- */
+.chat-interface {
+    margin-top: 30px; /* Space above the chat, separating it from the audio card */
+}
+
+/* --- Chat message log --- */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 25px;
+    max-height: 60vh; /* Give it plenty of space to scroll */
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px 12px 0 0; /* Rounded corners only on top */
+    background-color: var(--sidebar-bg);
+}
+
+/* Wrapper to hold avatar and message bubble */
+.chat-message-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: 85%;
+}
+
+.user-wrapper {
+    flex-direction: row-reverse;
+    margin-left: auto;
+}
+.assistant-wrapper {
+    flex-direction: row;
+    margin-right: auto;
+}
+
+/* Avatar styles */
+.avatar {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background-color: var(--main-bg); /* Changed background */
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-subtle);
+}
+
+.user-wrapper .avatar {
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+}
+
+/* Message bubble styles */
+.chat-message {
+    padding: 12px 18px;
+    border-radius: 18px;
+    word-wrap: break-word;
+    font-size: 0.95em;
+    line-height: 1.5;
+    box-shadow: var(--shadow-light);
+}
+
+.user-msg {
+    background-color: var(--primary-blue);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.assistant-msg {
+    background-color: var(--chat-bg-assistant);
+    color: var(--text-primary);
+    border-bottom-left-radius: 4px;
+}
+
+.message-audio-output {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* --- THE NEW, PROMINENT CHAT INPUT --- */
+/* This is the most important part for signaling "this is a chat" */
+.chat-form-container {
+    padding: 15px;
+    background-color: var(--sidebar-bg);
+    border: 1px solid var(--border-subtle);
+    border-top: none; /* The chat-container has the top border */
+    border-radius: 0 0 12px 12px; /* Rounded corners only on the bottom */
+}
+
+.chat-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.chat-form input[type="text"] {
+    flex-grow: 1;
+    padding: 12px 18px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 25px;
+    font-size: 1em;
+    outline: none;
+    background-color: var(--main-bg);
+    color: var(--text-primary);
+    transition: box-shadow 0.2s ease-in-out, border-color 0.2s;
+}
+
+.chat-form input[type="text"]:focus {
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 2px var(--primary-blue);
+}
+
+.chat-form button {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.chat-form button:hover:not(:disabled) {
+    background-color: var(--primary-blue-dark);
+    transform: scale(1.05);
+}
+
+.chat-form button:disabled {
+    background-color: var(--border-subtle);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    transform: scale(1);
+}
+
+/* --- Scrollbar --- */
+.chat-container::-webkit-scrollbar { width: 8px; }
+.chat-container::-webkit-scrollbar-track { background: transparent; }
+.chat-container::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; }
+.chat-container::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+
+.chat-message-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: 85%;
+}
+
+.user-wrapper {
+    flex-direction: row-reverse;
+    margin-left: auto;
+}
+.assistant-wrapper {
+    flex-direction: row;
+    /* Allow the assistant content to take up more space */
+    width: 100%;
+    max-width: 100%;
+}
+
+/* ... (Keep .avatar and .user-wrapper .avatar rules) ... */
+
+/* --- User message bubble (remains the same) --- */
+.chat-message.user-msg {
+    background-color: var(--primary-blue);
+    color: white;
+    padding: 12px 18px;
+    border-radius: 18px;
+    border-bottom-right-radius: 4px;
+    word-wrap: break-word;
+    font-size: 0.95em;
+    line-height: 1.5;
+}
+
+/* --- NEW: Assistant Content Styling --- */
+.assistant-content-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 10px; /* Space between text and audio card */
+}
+
+/* Style for the plain text part of an assistant message */
+.assistant-text {
+    padding-top: 5px; /* Align text nicely with avatar */
+    font-size: 0.95em;
+    line-height: 1.6;
+    color: var(--text-primary);
+    word-wrap: break-word;
+}
