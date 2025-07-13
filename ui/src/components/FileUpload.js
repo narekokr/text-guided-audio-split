@@ -1,14 +1,21 @@
 // components/FileUpload.js
-import React, { useState, useRef } from 'react';
+import React, {useState, useRef, useImperativeHandle, forwardRef} from 'react';
 import './FileUpload.css'; // For styling
 
-function FileUpload({ onFileUpload, isProcessing, fileUploaded }) {
+const FileUpload = forwardRef(({ onFileUpload, isProcessing, fileUploaded }, ref) => {
     const [selectedFile, setSelectedFile] = useState(null);
     const fileInputRef = useRef(null);
 
     const handleFileChange = (event) => {
         setSelectedFile(event.target.files[0]);
     };
+
+
+    useImperativeHandle(ref, () => ({
+        reset() {
+            setSelectedFile(null);
+        }
+    }));
 
     const handleSubmit = (event) => {
         event.preventDefault();
@@ -50,6 +57,6 @@ function FileUpload({ onFileUpload, isProcessing, fileUploaded }) {
             </details>
         </div>
     );
-}
+});
 
 export default FileUpload;

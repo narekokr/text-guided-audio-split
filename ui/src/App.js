@@ -12,6 +12,7 @@ import {
     signInWithPopup,
     signOut
 } from 'firebase/auth';
+import DeleteIcon from "./components/DeleteIcon";
 
 const API_URL = "http://localhost:8000";
 
@@ -27,9 +28,10 @@ function App() {
 
     const [user, setUser] = useState(null);
     const [authError, setAuthError] = useState(null);
+    const [authLoading, setAuthLoading] = useState(true);
 
     const [userSessions, setUserSessions] = useState([]);
-
+    const fileUploadRef = useRef(null);
     // Apply dark/light theme class to body
     useEffect(() => {
         if (isDarkTheme) {
@@ -59,6 +61,7 @@ function App() {
                 setChatHistory([]);
                 setUserSessions([]);
             }
+            setAuthLoading(false);
         });
 
         return () => unsubscribe();
@@ -135,17 +138,22 @@ function App() {
         }
     };
 
-    const resetApplicationState = async () => {
-        if (user && sessionId) {
+    const deleteSession = async (id) => {
+        if (user && id) {
             try {
-                await apiResetSession(sessionId, user.uid); // Pass user.uid
-                console.log(`Backend session ${sessionId} for user ${user.uid} deleted.`);
+                await apiResetSession(id, user.uid);
+                console.log(`Backend session ${id} for user ${user.uid} deleted.`);
+                if (id === sessionId) {
+                    await resetApplicationState();
+                }
             } catch (error) {
                 console.error("Error resetting backend session:", error);
-                setAuthError("Failed to delete old session."); // Inform user
+                setAuthError("Failed to delete old session.");
             }
         }
+    }
 
+    const resetApplicationState = async () => {
         if (initialAudioUrl) {
             URL.revokeObjectURL(initialAudioUrl);
             console.log("Revoked local audio URL:", initialAudioUrl);
@@ -158,8 +166,10 @@ function App() {
         setInitialAudioUrl(null);
         setChatHistory([]);
         setIsProcessing(false);
-        setAuthError(null); // Clear any previous auth errors
-
+        setAuthError(null);
+        if (fileUploadRef.current) {
+            fileUploadRef.current.reset();
+        }
         if (user) {
             await fetchUserSessions(user.uid);
         }
@@ -270,6 +280,15 @@ function App() {
         }
     };
 
+    if (authLoading) {
+        return (
+            <div className={`auth-container ${isDarkTheme ? 'dark-theme' : 'light-theme'}`}>
+                <div className="loading-spinner"></div>
+                <h2>Loading...</h2>
+            </div>
+        );
+    }
+
     if (!user) {
         return (
             <div className={`auth-container ${isDarkTheme ? 'dark-theme' : 'light-theme'}`}>
@@ -316,26 +335,32 @@ function App() {
                     ) : userSessions.length === 0 ? (
                         <p className="no-conversations-msg">No conversations yet. Click '+ New Chat' to start one!</p>
                     ) : (
-                        <ul className="session-list">
-                            {userSessions.map((session) => (
-                                <li
-                                    key={session.id}
-                                    className={`session-item ${session.id === sessionId ? 'active' : ''}`}
-                                    onClick={() => handleSessionClick(session.id)}
+                    <ul className="session-list">
+                        {userSessions.map((session) => (
+                            <li
+                                key={session.id}
+                                className={`session-item ${session.id === sessionId ? 'active' : ''}`}
+                                onClick={() => handleSessionClick(session.id)}
+                            >
+                                <span className="session-date">
+                                    {new Date(session.created_at).toLocaleString('en-GB', {
+                                        day: '2-digit', month: '2-digit', year: 'numeric',
+                                        hour: '2-digit', minute: '2-digit'
+                                    })}
+                                </span>
+                                <button
+                                    className="session-delete-button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteSession(session.id);
+                                    }}
+                                    title="Delete Chat"
                                 >
-                                    <span className="session-date">
-                                        {new Date(session.created_at).toLocaleString('en-GB', {
-                                            day: '2-digit', month: '2-digit', year: 'numeric',
-                                            hour: '2-digit', minute: '2-digit'
-                                        })}
-                                    </span>
-                                    <br />
-                                    <small className="session-id-preview">
-                                        ID: {session.id.substring(0, 8)}...
-                                    </small>
-                                </li>
-                            ))}
-                        </ul>
+                                    <DeleteIcon/>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
                     )}
                 </div>
                 <div className="user-info">
@@ -359,38 +384,31 @@ function App() {
                         onFileUpload={handleFileUpload}
                         isProcessing={isProcessing}
                         fileUploaded={fileUploaded}
-                        resetApplicationState={resetApplicationState}
+                        ref={fileUploadRef}
                     />
 
                     {fileUploaded && (
-                        <>
-                            <hr className="divider" />
-                            {!chatHistory.length && !isProcessing && (
-                                <p className="info-message">Your audio is ready. Ask the assistant something, like 'separate vocals and bass'.</p>
-                            )}
-
-                            {/* ORIGINAL AUDIO */}
-                            {initialAudioUrl && (
-                                <>
-                                    <h3>Original Audio</h3>
-                                    <div className="output-container">
-                                        <div className="audio-item">
-                                            <strong>Original File</strong>
-                                            <audio controls src={initialAudioUrl} className="audio-player"></audio>
-                                            <a
-                                                href={initialAudioUrl}
-                                                download
-                                                className="download-btn"
-                                            >
-                                                Download Original
-                                            </a>
-                                        </div>
+                    <>
+                        {/* --- NEW: Original Audio Section Wrapper --- */}
+                        {initialAudioUrl && (
+                                <div className="content-section">
+                                    <div className="audio-item">
+                                        <strong>Original File</strong>
+                                        <audio controls src={initialAudioUrl} className="audio-player"></audio>
+                                        <a
+                                            href={initialAudioUrl}
+                                            download={currentFilename || 'original_audio'}
+                                            className="download-btn"
+                                        >
+                                            Download Original
+                                        </a>
                                     </div>
-                                    <hr className="divider" />
-                                </>
-                            )}
+                                </div>
+                        )}
 
-                            {/* CHAT INTERFACE */}
+                        {/* --- NEW: Chat Interface Section Wrapper --- */}
+                        {/*<div className="content-section">*/}
+                            {/* We no longer need the <hr /> inside ChatInterface */}
                             <ChatInterface
                                 chatHistory={chatHistory}
                                 onSendMessage={handleSendMessage}
@@ -398,9 +416,9 @@ function App() {
                                 chatContainerRef={chatContainerRef}
                                 apiBaseUrl={API_URL}
                             />
-
-                        </>
-                    )}
+                        {/*</div>*/}
+                    </>
+                )}
                 </div>
             </main>
         </div>
