@@ -1,4 +1,6 @@
 import json
+import os
+
 from transformers import pipeline
 import logging
 from demucs.demucs.pretrained import get_model
@@ -8,9 +10,9 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
-
-with open("api_key.txt", "r") as file:
-    api_key = file.read().strip()
+from dotenv import load_dotenv
+load_dotenv()
+api_key = os.getenv("API_KEY")
 
 client = openai.OpenAI(api_key=api_key)
 

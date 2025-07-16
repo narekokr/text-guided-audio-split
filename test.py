@@ -1,3 +1,5 @@
+import os
+
 import openai
 from openai import OpenAI
 from openai.types.chat import (
@@ -5,8 +7,9 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
-with open("api_key.txt", "r") as file:
-    api_key = file.read().strip()
+from dotenv import load_dotenv
+load_dotenv()
+api_key = os.getenv("API_KEY")
 
 client = OpenAI(api_key=api_key)
 

@@ -140,6 +140,7 @@ xxhash==3.5.0
 yarl==1.20.0
 zipp==3.21.0
 uvicorn==0.34.3
+scikit-learn
 dora-search==0.1.12
 psycopg2-binary==2.9.10
 
@@ -149,3 +150,4 @@ treetable
 lameenc
 omegaconf
 openunmix
+hf_xet
