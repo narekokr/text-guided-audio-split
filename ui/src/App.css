@@ -1,0 +1,596 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Light Theme Variables */
+:root, .light-theme {
+    --primary-blue: #3b82f6;
+    --primary-blue-dark: #2563eb;
+    --accent-purple: #8b5cf6;
+    --accent-purple-dark: #7c3aed;
+
+    --sidebar-bg: #f7f7f8;
+    --main-bg: #ffffff;
+    --chat-bg-assistant: #f0f0f0;
+    --chat-bg-user: #e0f2fe;
+    --card-bg: #ffffff;
+
+    --text-primary: #343541;
+    --text-secondary: #6b7280;
+    --text-placeholder: #a0a0a0;
+
+    --border-subtle: #e5e7eb;
+    --shadow-light: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
+    --shadow-medium: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+    --success-color: #10b981;
+    --error-color: #ef4444;
+    --info-color: #2563eb;
+    --info-bg: #eff6ff;
+
+    --scrollbar-track: var(--main-bg);
+    --scrollbar-thumb: var(--border-subtle);
+    --scrollbar-thumb-hover: #c0c0c0;
+
+    --google-button-bg: #4285F4;
+    --google-button-hover-bg: #357AE8;
+}
+
+/* Dark Theme Variables */
+.dark-theme {
+    --primary-blue: #60a5fa;
+    --primary-blue-dark: #3b82f6;
+    --accent-purple: #a78bfa;
+    --accent-purple-dark: #8b5cf6;
+
+    --sidebar-bg: #202123;
+    --main-bg: #343541;
+    --chat-bg-assistant: #444654;
+    --chat-bg-user: #3b82f6;
+    --card-bg: #343541;
+
+    --text-primary: #ffffff;
+    --text-secondary: #d1d5db;
+    --text-placeholder: #a0a0a0;
+
+    --border-subtle: rgba(255, 255, 255, 0.1);
+    --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.2);
+    --shadow-medium: 0 4px 6px rgba(0, 0, 0, 0.3);
+
+    --success-color: #34d399;
+    --error-color: #fca5a5;
+    --info-color: #93c5fd;
+    --info-bg: rgba(147, 197, 253, 0.1);
+
+    --scrollbar-track: var(--main-bg);
+    --scrollbar-thumb: var(--chat-bg-assistant);
+    --scrollbar-thumb-hover: #606272;
+
+    --google-button-bg: #4285F4;
+    --google-button-hover-bg: #357AE8;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--main-bg);
+    color: var(--text-primary);
+    line-height: 1.6;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.app-layout {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+.sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background-color: var(--sidebar-bg);
+    color: var(--text-secondary);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-subtle);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+    overflow-y: auto;
+}
+
+.sidebar-header {
+    padding: 10px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+}
+
+.new-chat-button {
+    flex-grow: 1;
+    background-color: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 500;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+}
+
+.new-chat-button:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    transform: translateY(-1px);
+}
+
+.new-chat-button:active {
+    transform: translateY(0);
+}
+
+.theme-toggle-button {
+    background: var(--sidebar-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    width: 40px;
+    height: 40px;
+    font-size: 1.2em;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.2s ease-in-out;
+    box-shadow: none;
+    color: var(--text-primary);
+}
+
+.theme-toggle-button:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    transform: translateY(-1px);
+}
+
+.theme-toggle-button:active {
+    transform: translateY(0);
+}
+
+.conversations-history {
+    flex-grow: 1;
+    font-size: 0.9em;
+    padding: 0 10px;
+}
+
+.conversations-history p {
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.main-content {
+    width: calc(100vw - 300px);
+    flex-grow: 1;
+    background-color: var(--main-bg);
+    overflow-y: auto;
+    padding-top: 20px;
+    padding-bottom: 20px;
+    min-height: 100%;
+    box-sizing: border-box;
+    padding-left: max(20px, calc(30% - 300px));
+    padding-right: max(20px, calc(30% - 300px));
+}
+
+.app-container {
+    width: 100%;
+    padding: 30px;
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: var(--shadow-light);
+    border: 1px solid var(--border-subtle);
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    box-sizing: border-box;
+    margin: 20px 0;
+}
+
+h1 {
+    font-size: 2em;
+    color: var(--text-primary);
+    text-align: center;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.caption {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.9em;
+    margin-bottom: 30px;
+}
+
+.divider {
+    border: none;
+    border-top: 1px solid var(--chat-bg-assistant);
+    margin: 40px 0;
+    transition: border-color 0.3s ease;
+}
+
+.info-message {
+    background-color: var(--info-bg);
+    color: var(--info-color);
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    text-align: center;
+    font-size: 0.9em;
+    font-weight: 500;
+    border: 1px solid var(--info-color);
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.reset-button {
+    display: block;
+    width: fit-content;
+    margin: 25px auto 40px auto;
+    padding: 10px 20px;
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95em;
+    font-weight: 600;
+    transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out, box-shadow 0.3s ease;
+    box-shadow: var(--shadow-light);
+}
+
+.reset-button:hover {
+    background-color: var(--primary-blue-dark);
+    transform: translateY(-2px);
+}
+
+.reset-button:active {
+    transform: translateY(0);
+}
+
+.reset-button:disabled {
+    background-color: var(--border-subtle);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Theme application for auth container, although body already handles it */
+.auth-container.dark-theme {
+    background-color: var(--main-bg); /* Use main-bg from dark theme */
+    color: var(--text-primary);
+}
+
+.auth-container.light-theme {
+    background-color: var(--main-bg); /* Use main-bg from light theme */
+    color: var(--text-primary);
+}
+
+.auth-form { /* Renamed from .auth-form to .google-only-form in JS, but this can serve the general card style */
+    background-color: var(--card-bg);
+    padding: 30px;
+    border-radius: 12px; /* Consistent with app-container */
+    box-shadow: var(--shadow-medium); /* More prominent shadow for login */
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid var(--border-subtle); /* Consistent with app-container */
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.auth-form h1 { /* Apply main h1 style to auth form heading */
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 2.2em; /* Slightly larger for main auth heading */
+    color: var(--text-primary);
+    text-align: center;
+}
+
+.auth-form p {
+    color: var(--text-secondary);
+    text-align: center;
+    font-size: 1em;
+    margin-bottom: 10px; /* Space before button */
+}
+
+.auth-error {
+    color: var(--error-color); /* Use your defined error color */
+    font-size: 0.9em;
+    text-align: center;
+    margin-top: 10px;
+}
+
+.google-login-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background-color: var(--google-button-bg);
+    color: white; /* Text color for Google button */
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px; /* Consistent with other buttons */
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 600; /* Consistent with new-chat-button */
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: var(--shadow-light); /* Subtle shadow for button */
+}
+
+.google-login-button:hover {
+    background-color: var(--google-button-hover-bg);
+    transform: translateY(-1px);
+}
+
+.google-login-button:active {
+    transform: translateY(0);
+}
+
+.google-login-button img {
+    width: 20px;
+    height: 20px;
+    vertical-align: middle; /* Align icon nicely */
+}
+
+
+.sidebar .user-info {
+    padding: 15px;
+    border-top: 1px solid var(--border-subtle);
+    margin-top: auto; /* Pushes it to the bottom */
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+.sidebar .user-info p {
+    margin: 0; /* Override default p margin */
+    font-size: 0.95em;
+    color: var(--text-secondary);
+}
+
+.sidebar .user-info strong {
+    color: var(--text-primary);
+}
+
+.sidebar .logout-button {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--error-color); /* Use error color for logout */
+    color: white;
+    border: none;
+    border-radius: 8px; /* Consistent with other buttons */
+    cursor: pointer;
+    font-size: 0.95em;
+    font-weight: 600;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: var(--shadow-light);
+}
+
+.sidebar .logout-button:hover {
+    background-color: #e03f3f; /* Slightly darker red for hover */
+    transform: translateY(-1px);
+}
+.sidebar .logout-button:active {
+    transform: translateY(0);
+}
+
+.auth-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Centers horizontally */
+    justify-content: center; /* Centers vertically */
+    min-height: 100vh; /* Ensures it takes at least the full viewport height */
+    padding: 20px;
+    box-sizing: border-box;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    width: 100vw;
+}
+
+/* --- Added & Updated Styles for Gemini-like Session List --- */
+
+.conversations-history h3 {
+    padding: 0 10px; /* Align with session items */
+    margin-bottom: 10px;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.conversations-history .no-conversations-msg {
+    color: var(--text-secondary);
+    text-align: center;
+    font-size: 0.9em;
+    padding: 0 10px;
+}
+
+ul.session-list {
+    list-style-type: none; /* Remove default bullet points */
+    padding: 0;
+    margin: 0;
+    max-height: calc(100vh - 250px); /* Example height, adjust as needed */
+    overflow-y: auto; /* Add scroll for long lists */
+}
+
+li.session-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 15px;
+    margin: 4px 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    position: relative; /* Needed for positioning the delete button */
+}
+
+li.session-item:hover {
+    background-color: var(--chat-bg-assistant);
+}
+
+li.session-item.active {
+    background-color: var(--primary-blue-dark);
+    color: white;
+}
+
+.session-date {
+    font-size: 0.9em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none; /* Make text non-interactive so click goes to parent */
+}
+
+.session-delete-button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 5px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+li.session-item:hover .session-delete-button {
+    opacity: 1; /* Show on hover */
+}
+
+.session-delete-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--error-color);
+}
+
+/* Ensure active item's text color is readable */
+li.session-item.active .session-date {
+    color: white;
+}
+
+li.session-item.active .session-delete-button {
+    color: white;
+    opacity: 1; /* Keep visible on active item */
+}
+
+/* Small screen adjustments */
+@media (max-width: 768px) {
+    .conversations-history {
+        display: block; /* Show history on mobile */
+        max-height: 150px; /* Give it a max height */
+        overflow-y: auto;
+    }
+    ul.session-list {
+        max-height: none; /* Remove height constraint inside a scrolling parent */
+    }
+}
+/* Add this to App.css */
+
+/* --- New Content Section Card Style --- */
+.content-section {
+    background-color: var(--sidebar-bg); /* A slightly different background */
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 25px;
+    margin-top: 25px; /* This creates the space between sections */
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.content-section h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.1em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 15px;
+}
+
+/* --- Styles for the components inside the cards --- */
+.output-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.audio-item {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.audio-item strong {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.audio-player {
+    width: 100%;
+}
+
+.download-btn {
+    align-self: flex-start; /* Align button to the left */
+    padding: 8px 16px;
+    background-color: var(--primary-blue);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.download-btn:hover {
+    background-color: var(--primary-blue-dark);
+}
+/* --- Responsive Adjustments --- */
+@media (max-width: 768px) {
+    .app-layout {
+        flex-direction: column;
+    }
+    .sidebar {
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-subtle);
+        padding: 10px 20px;
+    }
+    .sidebar-header {
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+    }
+    .conversations-history {
+        display: none;
+    }
+    .main-content {
+        padding: 15px;
+        width: 100%; /* Take full width on small screens */
+        padding-left: 15px; /* Adjust padding for small screens */
+        padding-right: 15px;
+    }
+    .app-container {
+        padding: 20px;
+        border-radius: 0;
+        box-shadow: none;
+        border: none;
+    }
+
+    /* Auth container adjustments for smaller screens */
+    .auth-container {
+        padding: 15px;
+    }
+    .auth-form {
+        padding: 20px;
+        max-width: 100%; /* Allow form to expand on small screens */
+    }
+}
