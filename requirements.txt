@@ -144,7 +144,7 @@ dora-search==0.1.12
 psycopg2-binary==2.9.10
 
 librosa
-dora
+dora==0.0.3
 treetable
 lameenc
 omegaconf
