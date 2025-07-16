@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - test-deploy
 
 env:
   PROJECT_ID: test-84720
