@@ -37,8 +37,13 @@ Prompt: "Extract vocals and bass only"
 4. Dataset path, CLAP checkpoint path and Save Path in fine_tuning/preprocess_triplets.py
 
 
+## To Run the Fine-Tuned version update the following: 
+
+1. CLAP checkpoint path in audio_utils/separator.py
+2. best.th path in audio_utils/separator.py and llm_backend/interpreter.py
+3. llm_backend/interpreter.py needs the api_key.txt
+
+
 ## TO DO:
 
-1. Remix instructions / Simple DSP
-2. CLAP similarity check to determine instruments in the mix
-3. Relax the fixed set of Valid Stems in audio_utils/separator.py
+1. CLAP similarity check to determine instruments in the mix
