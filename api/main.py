@@ -80,25 +80,31 @@ def chat(request: ChatRequest):
             is_remix = True
     else:
         intent = classify_prompt(user_message)
-
+        print(intent)
         if intent["type"] == "separation":
             selected_stems = intent.get("stems", [])
-
+            print(selected_stems)
             separated = []
             silent_stems = []
 
             if audio_path and selected_stems:
                 outputs = separate_audio(audio_path, selected_stems)
                 for stem_name, stem_tensor in outputs.items():
-                    if stem_tensor.ndim == 3:
-                        stem_tensor = stem_tensor[0]
-                    elif stem_tensor.ndim == 1:
-                        stem_tensor = stem_tensor.unsqueeze(0)
+                    # Always try to squeeze redundant dimensions
+                    stem_tensor = stem_tensor.squeeze()
 
+                    # Now check result
+                    if stem_tensor.ndim == 1:
+                        stem_tensor = stem_tensor.unsqueeze(0)
+                    elif stem_tensor.ndim != 2:
+                        raise ValueError(f"Unsupported tensor shape for audio save: {stem_tensor.shape}")
+
+    
                     uid = uuid.uuid4().hex[:6]
                     base = os.path.splitext(os.path.basename(audio_path))[0]
                     output_name = f"{base}_{stem_name}_{uid}.wav"
                     output_path = f"separated/{output_name}"
+                                       
                     torchaudio.save(output_path, stem_tensor, 44100)
 
                     audio = AudioSegment.from_file(output_path, format="wav")
