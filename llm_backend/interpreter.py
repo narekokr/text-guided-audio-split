@@ -20,9 +20,6 @@ model = get_model(name="mdx_extra_q")
 logger = logging.getLogger(__name__)
 VALID_STEMS = {"vocals", "drums", "bass", "other"}
 
-pipe = pipeline("text2text-generation", model="google/flan-t5-large")
-
-
 def extract_stem_list(prompt: str) -> list[str]:
     logger.info(f"prompt: {prompt}")
     instruction = (
