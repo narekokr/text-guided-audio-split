@@ -1,13 +1,10 @@
-import torch
 import torchaudio
-from pathlib import Path
-import torchaudio.transforms as T
-
 from demucs.demucs.pretrained import get_model
-from demucs.demucs.apply import apply_model
+from demucs.demucs.apply import (apply_model)
+import torchaudio.transforms as T
+from pathlib import Path
 
 from demucs.demucs.hdemucs import HDemucs
-
 from laion_clap import CLAP_Module
 
 # Global CLAP model cache
@@ -31,65 +28,53 @@ def get_clap_embedding(text: str, device="cpu"):
         emb = model.get_text_embedding([text], use_tensor=True).to(device)
     return emb  # [1, 512]
 
-def separate_audio(
-    filepath: str,
-    selected_stems: list[str],
-    model_name: str = "hdemucs_mmi"
-):
-    """
-    Separates audio into selected stems using CLAP conditioning per stem name.
-
-    Args:
-        filepath: path to input audio
-        selected_stems: list of stems (["vocals", "drums"], etc.)
-        model_name: Demucs model to use (must be CLAP-conditioned)
-    Returns:
-        Dict of {stem_name: audio_tensor}
-    """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    #model = get_model(name=model_name)
-    sources = ["drums", "bass", "other", "vocals"]
-    model = HDemucs(sources=sources)
+def separate_audio(filepath: str, selected_stems: list[str]):    
+    device = "cuda" if torch.cuda.is_available() else "cpu" 
+    #model = get_model(name="mdx_extra_q")
+    sources = ["stem"]
+    model = HDemucs(sources = sources)
+    checkpoint = torch.load("outputs/xps/97d170e1/best.th", map_location="cpu")
+    model.load_state_dict(checkpoint['state'])
+    model.eval()
     model.to(device)
-
+    
     try:
         torchaudio.set_audio_backend("sox_io")
     except RuntimeError:
         torchaudio.set_audio_backend("soundfile")
 
+    print("Resolving file:", Path(filepath).resolve())
     assert Path(filepath).exists(), f"File not found: {filepath}"
     wav, sr = torchaudio.load(filepath)
 
-    # [1, 2, T] (batched stereo)
+    # Ensure the audio is batched: shape [1, channels, time]
     if wav.ndim == 2:
         wav = wav.unsqueeze(0)
+
+    # Convert mono to stereo if needed
     if wav.shape[1] == 1:
         wav = wav.repeat(1, 2, 1)
     elif wav.shape[1] != 2:
-        raise ValueError(f"Model requires stereo (2 channels), got shape: {wav.shape}")
+        raise ValueError(f"Demucs requires stereo (2 channels), but got shape: {wav.shape}")
 
-    # Resample to 44.1kHz if needed
+    print(f"WAV shape: {wav.shape}, sample rate: {sr}")
+
+    # Resample if not 44.1kHz
     if sr != 44100:
         resampler = T.Resample(orig_freq=sr, new_freq=44100)
         wav = resampler(wav)
-
-    wav = wav.to(device)
 
     results = {}
     for stem in selected_stems:
         # 1. Get CLAP embedding of the stem name
         cond = get_clap_embedding(stem, device=device)  # [1, 512]
-        
+
         # 2. Run model with conditioning
         with torch.no_grad():
-            out = apply_model(model, wav, device=device, conditioning=cond)[0]  # [num_stems, 2, T]
-        
-        # 3. Find output index for this stem
-        # Model's internal source order:
-        model_stems = list(model.sources)
-        if stem not in model_stems:
-            continue  # ignore stems not in the model (just in case)
-        i = model_stems.index(stem)
-        results[stem] = out[i].cpu()
+            out = apply_model(model, wav, device=device, conditioning=cond)  # [2, T] or [1, 2, T]
+            # Remove batch dim if needed
+            if out.ndim == 3 and out.shape[0] == 1:
+                out = out[0]
+        results[stem] = out.cpu()
 
     return results
