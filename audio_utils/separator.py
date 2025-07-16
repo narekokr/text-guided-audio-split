@@ -3,7 +3,7 @@ from demucs.demucs.pretrained import get_model
 from demucs.demucs.apply import (apply_model)
 import torchaudio.transforms as T
 from pathlib import Path
-
+import torch
 from demucs.demucs.hdemucs import HDemucs
 from laion_clap import CLAP_Module
 
@@ -33,7 +33,7 @@ def separate_audio(filepath: str, selected_stems: list[str]):
     #model = get_model(name="mdx_extra_q")
     sources = ["stem"]
     model = HDemucs(sources = sources)
-    checkpoint = torch.load("outputs/xps/97d170e1/best.th", map_location="cpu")
+    checkpoint = torch.load("outputs/xps/97d170e1/best.th", map_location="cpu", weights_only=False)
     model.load_state_dict(checkpoint['state'])
     model.eval()
     model.to(device)
