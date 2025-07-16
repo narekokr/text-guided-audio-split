@@ -8,11 +8,14 @@ from openai.types.chat import (
 )
 
 from dotenv import load_dotenv
+
+from demucs.demucs.pretrained import get_model
+
 load_dotenv()
 api_key = os.getenv("API_KEY")
 
 client = OpenAI(api_key=api_key)
-
+get_model('mdx_extra_q')
 response = client.chat.completions.create(
     model="gpt-3.5-turbo",
     messages=[
