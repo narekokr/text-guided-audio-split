@@ -3,7 +3,8 @@ FROM python:3.12.9
 
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
-
+ARG OPENAPI_TOKEN
+ENV API_KEY=${HF_TOKEN}
 RUN apt-get update && \
     apt-get install -y --no-install-recommends software-properties-common && \
     apt-get update && \
