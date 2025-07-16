@@ -46,6 +46,7 @@ importlib_metadata==8.7.0
 iniconfig==2.1.0
 Jinja2==3.1.6
 jiter==0.9.0
+julius
 jsonschema==4.23.0
 jsonschema-specifications==2025.4.1
 Levenshtein==0.27.1
