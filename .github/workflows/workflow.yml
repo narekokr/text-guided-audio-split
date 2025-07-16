@@ -52,4 +52,4 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            API_KEY=${{ secrets.API_KEY }}
+            OPENAPI_TOKEN=${{ secrets.API_KEY }}
