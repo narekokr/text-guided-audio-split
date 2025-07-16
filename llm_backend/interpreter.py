@@ -4,6 +4,7 @@ import logging
 from demucs.demucs.pretrained import get_model
 from demucs.demucs.hdemucs import HDemucs
 import openai
+import torch
 
 from openai.types.chat import (
     ChatCompletionSystemMessageParam,
@@ -18,7 +19,7 @@ sources = ["stem"]
 
 #model = get_model(name="mdx_extra_q")
 model = HDemucs(sources = sources)
-checkpoint = torch.load("outputs/xps/97d170e1/best.th", map_location="cpu")
+checkpoint = torch.load("outputs/xps/97d170e1/best.th", map_location="cpu",weights_only=False)
 model.load_state_dict(checkpoint['state'])
 model.eval()
 
