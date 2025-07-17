@@ -7,6 +7,6 @@ load_dotenv()
 engine = create_engine(os.getenv('DB_URL'), echo=True)
 
 SQLModel.metadata.create_all(engine)
-# Create a session factory
+
 def get_session():
     return Session(engine)

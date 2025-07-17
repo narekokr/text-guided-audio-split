@@ -53,7 +53,7 @@ app.mount("/downloads", StaticFiles(directory="separated"), name="downloads")
 async def chat(request: ChatRequest):
     """Process user chat messages for audio separation and remixing."""
     try:
-        validate_chat_request(request)
+        #validate_chat_request(request)
         
         user_message = request.message
         session_id = request.session_id
