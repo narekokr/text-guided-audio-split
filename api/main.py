@@ -53,8 +53,6 @@ app.mount("/downloads", StaticFiles(directory="separated"), name="downloads")
 async def chat(request: ChatRequest):
     """Process user chat messages for audio separation and remixing."""
     try:
-        #validate_chat_request(request)
-        
         user_message = request.message
         session_id = request.session_id
         user_id = request.user_id
@@ -63,17 +61,16 @@ async def chat(request: ChatRequest):
         
         has_remix_output = False
         is_feedback_request = False
-        
-        intent = classify_prompt(user_message)
-        logger.debug(f"Intent classified: {intent}")
-        
-        if (session_active_task.get(session_id) == SESSION_TASK_REMIX and
-            intent["type"] not in [IntentType.SEPARATION.value, IntentType.CLARIFICATION.value]):
-            
+
+        if session_active_task.get(session_id) == SESSION_TASK_REMIX:
             feedback_adjustments = parse_feedback(user_message)
             if feedback_adjustments:
                 is_feedback_request = True
-        
+
+        if not is_feedback_request:
+            intent = classify_prompt(user_message)
+            logger.debug(f"Intent classified: {intent}")
+
         if is_feedback_request:
             last_instructions = session_last_instructions.get(session_id, {"volumes": DEFAULT_VOLUMES})
             result = handle_feedback_request(user_message, session_id, last_instructions)
