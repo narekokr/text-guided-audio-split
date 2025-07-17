@@ -1,8 +1,12 @@
-from sqlmodel import create_engine, Session
+import os
 
-# Create the engine (this part you already have)
-engine = create_engine("postgresql+psycopg2://lelat@localhost:5432/audio_split", echo=True)
+from sqlmodel import create_engine, Session, SQLModel
+from dotenv import load_dotenv
+load_dotenv()
 
+engine = create_engine(os.getenv('DB_URL'), echo=True)
+
+SQLModel.metadata.create_all(engine)
 # Create a session factory
 def get_session():
     return Session(engine)

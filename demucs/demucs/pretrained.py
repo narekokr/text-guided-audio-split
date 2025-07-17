@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 import typing as tp
 #from dora import fatal, bold
-from dora.dora.log import fatal, bold
+from dora.log import fatal, bold
 #from .hdemucs import HDemucs
 from .repo import RemoteRepo, LocalRepo, ModelOnlyRepo, BagOnlyRepo, AnyModelRepo, ModelLoadingError  # noqa
 from .states import _check_diffq

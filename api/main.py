@@ -36,8 +36,9 @@ import numpy as np
 
 app = FastAPI(debug=True)
 
-with open("api_key.txt", "r") as file:
-    api_key = file.read().strip()
+from dotenv import load_dotenv
+load_dotenv()
+api_key = os.getenv("API_KEY")
 
 client = openai.OpenAI(api_key=api_key)
 app.include_router(upload_router)
@@ -50,6 +51,7 @@ app.add_middleware(
 )
 
 app.mount("/downloads", StaticFiles(directory="separated"), name="downloads")
+
 
 @app.post("/chat")
 def chat(request: ChatRequest):
