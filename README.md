@@ -43,17 +43,44 @@ Uses **GPT-4** to classify and interpret natural language user instructions into
 
 - **Separation**: Extract specific stems (e.g., vocals, drums)
 - **Remix**: Apply DSP effects (volume, reverb, EQ, filtering, etc.)
+- **Clarification**: Handle ambiguous requests, unsupported operations, and provide helpful guidance
 
-The LLM:
+### Overview of the workflow
+
 - Parses user input
 - Converts it into structured JSON with fields like:
   - `volumes`, `pitch_shift`, `reverb`, `compression`
   - `eq` (frequency, gain, width)
   - `filter` (type and cutoff)
 - Supports flexible natural language like:
-  > “Make vocals louder and add a low-pass filter at 4kHz”
+  > “add reverb to the whole mix to make it more ambient”
 
 ---
+
+## 🧠 Intelligent Intent Detection System
+
+The LLM-powered backend uses internal intent classification to understand user requests and route them appropriately. 
+
+### Why This Matters
+
+**🎯 Smart Routing**  
+Automatically distinguishes between separation requests ("give me vocals"), remix instructions ("make it louder"), and clarification needs ("what can you do?")
+
+**🛡️ Robust Error Handling**  
+Gracefully handles ambiguous requests, unsupported operations, and edge cases without crashes or confusing error messages
+
+**💬 Natural User Experience**  
+Provides helpful guidance instead of technical errors - when you ask for "trumpet solo," it explains the limitations and suggests alternatives
+
+**⚙️ Modular Architecture**  
+Clean separation between intent detection, audio processing, and response generation enables reliable testing and easy feature expansion
+
+### Technical Implementation
+- Multi-stage LLM classification pipeline
+- Context-aware conversation state management  
+- Sophisticated prompt engineering for precise parameter mapping
+- Feedback-driven iterative editing capabilities
+
 
 ## 🔁 Feedback Loop
 
