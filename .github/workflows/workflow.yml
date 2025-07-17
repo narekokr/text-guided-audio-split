@@ -53,3 +53,22 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             OPENAPI_TOKEN=${{ secrets.API_KEY }}
+
+      - name: Deploy to Cloud Run
+        run: |
+          IMAGE_URL=${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
+
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image $IMAGE_URL \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --platform managed \
+            --concurrency 80 \
+            --timeout 3600 \
+            --memory 16Gi \
+            --service-account 99992935726-compute@developer.gserviceaccount.com \
+            --update-env-vars DB_URL=${{ secrets.DB_URL }},API_KEY=${{ secrets.API_KEY }} \
+            --max-instances 3 \
+            --allow-unauthenticated \
+            --no-cpu-throttling \
+            --gpu type=nvidia-l4,count=1
