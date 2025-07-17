@@ -9,8 +9,10 @@ on:
 env:
   PROJECT_ID: test-84720
   GAR_LOCATION: europe
+  REGION: europe-west1
   REPOSITORY: soundscribe
   IMAGE_NAME: soundscribe
+  SERVICE_NAME: soundscribe
 
 jobs:
   build-and-push:
