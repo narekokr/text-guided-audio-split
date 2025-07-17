@@ -64,6 +64,7 @@ async def chat(request: ChatRequest):
 
         if session_active_task.get(session_id) == SESSION_TASK_REMIX:
             feedback_adjustments = parse_feedback(user_message)
+            logger.debug(f"Feedback adjustments: {feedback_adjustments}")
             if feedback_adjustments:
                 is_feedback_request = True
 
