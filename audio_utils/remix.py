@@ -1,17 +1,15 @@
 import soundfile as sf
 import numpy as np
 import uuid
+from api.helpers.session_state import session_active_task
 from audio_utils.separator import separate_audio
-from llm_backend.session_manager import get_file_from_db
+from llm_backend.session_manager import get_file_from_db # session_active_task, session_last_instructions
 import librosa
 from pydub import AudioSegment
 import os
 import tempfile
 from audio_utils.helpers import numpy_array_to_audiosegment
-
-
-session_last_instructions = {}
-session_active_task = {}
+from api.helpers.session_state import session_last_instructions, session_active_task
 
 def handle_remix(intent: dict, session_id: str) -> dict:
     """
@@ -109,6 +107,9 @@ def handle_remix(intent: dict, session_id: str) -> dict:
     print(f"DEBUG - Exporting final mix to: {output_path}")
     final_mix.export(output_path, format="wav")
     print(f"DEBUG - Export completed. Final mix duration: {len(final_mix)}ms")
+
+    session_active_task[session_id] = "remix"
+    session_last_instructions[session_id] = instructions
 
     return {
         "reply": f"Remix is created based on instructions.",
@@ -209,7 +210,7 @@ def generate_remix_name(intent: dict) -> str:
     """
     Join descriptors with underscores
     type_str = "_".join(remix_type) if remix_type else "basic"
-    output_name = f"remix_{type_str}_{uuid.uuid4().hex[:6]}.wav"
+    output_name = f" remix_{type_str}_{uuid.uuid4().hex[:6]}.wav"
     """
 
     remix_type = []
