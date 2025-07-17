@@ -73,4 +73,5 @@ jobs:
             --max-instances 3 \
             --allow-unauthenticated \
             --no-cpu-throttling \
-            --gpu type=nvidia-l4,count=1
+            --gpu-type=nvidia-l4 \
+            --no-gpu-zonal-redundancy
