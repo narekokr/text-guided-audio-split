@@ -14,7 +14,7 @@ import {
 } from 'firebase/auth';
 import DeleteIcon from "./components/DeleteIcon";
 
-const API_URL = "http://localhost:8000";
+const API_URL = process.env.REACT_APP_FIREBASE_API_URL;
 
 function App() {
     const [sessionId, setSessionId] = useState(null);

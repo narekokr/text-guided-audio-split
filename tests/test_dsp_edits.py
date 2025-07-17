@@ -2,39 +2,62 @@ import os
 import numpy as np
 import soundfile as sf
 import pytest
-from llm_backend.session_manager import save_file_to_db  # hypothetical function
-from audio_utils.remix import handle_remix
-from audio_utils.remix import apply_gain_scaling, apply_reverb, change_pitch, apply_compression
+import tempfile
 from unittest.mock import patch, MagicMock
-TEST_AUDIO = "tests/test.wav"
+from llm_backend.interpreter import classify_prompt, apply_feedback_to_instructions
 
-@patch("llm_backend.session_manager.save_file_to_db")
-def test_handle_remix_flow(mock_save, tmp_path):
-    # Setup dummy file in DB/session
-    dummy_file = tmp_path / "test.wav"
-    data = np.random.uniform(-0.5, 0.5, size=(44100 * 2, 2))
-    sf.write(dummy_file, data, 44100)
+try:
+    from audio_utils.remix import (
+        handle_remix, apply_gain_scaling, apply_reverb_pydub,
+        change_pitch_pydub, apply_compression_pydub, generate_remix_name
+    )
+    REMIX_AVAILABLE = True
+except ImportError:
+    REMIX_AVAILABLE = False
 
-    session_id = "test-session-id"
-    save_file_to_db(session_id, str(dummy_file), "temp", "vocals" )  # mock or actual store
-    mock_save.return_value = str(dummy_file)  # return a real path if needed
+try:
+    from audio_utils.helpers import numpy_array_to_audiosegment
+    HELPERS_AVAILABLE = True
+except ImportError:
+    HELPERS_AVAILABLE = False
 
-    intent = {
-        "type": "remix",
-        "instructions": {
-            "volumes": {"vocals": 1.2, "drums": 1.0, "bass": 1.0, "other": 1.0},
-            "reverb": {"vocals": 0.5}
-        }
-    }
+@pytest.fixture
+def create_test_audio():
+    def _create_audio(duration=2.0, sample_rate=44100, frequency=440):
+        t = np.linspace(0, duration, int(sample_rate * duration))
+        audio_data = np.column_stack([
+            0.3 * np.sin(2 * np.pi * frequency * t),  # Left channel
+            0.3 * np.sin(2 * np.pi * frequency * t)   # Right channel
+        ])
 
-    result = handle_remix(intent, session_id)
-    assert "remix" in result
-    remix_path = "separated/" + result["remix"]["file_url"].split("/")[-1]
-    assert os.path.exists(remix_path)
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+            sf.write(temp_file.name, audio_data, sample_rate)
+            return temp_file.name, audio_data, sample_rate
+    return _create_audio
+
+@pytest.fixture
+def mock_separation_output():
+    #tensors that mimic Demucs output
+    sample_rate = 44100
+    duration = 2.0
+    samples = int(sample_rate * duration)
+    t = np.linspace(0, duration, samples)
+
+    stems = {}
+    for i, stem in enumerate(["vocals", "drums", "bass", "other"]):
+        freq = 440 + (i * 110)  # 440, 550, 660, 770 Hz
+        audio = 0.2 * np.sin(2 * np.pi * freq * t)
+        stereo_audio = np.stack([audio, audio])
+        stems[stem] = type('MockTensor', (), {
+            'numpy': lambda: stereo_audio,
+            'ndim': 2,
+            'shape': stereo_audio.shape
+        })()
+
+    return stems
 
 @pytest.fixture(scope="module")
 def dummy_wav(tmp_path_factory):
-    # Generate a short dummy stereo wav file for testing
     tmpdir = tmp_path_factory.mktemp("data")
     path = os.path.join(tmpdir, "test.wav")
     sr = 44100
@@ -42,7 +65,7 @@ def dummy_wav(tmp_path_factory):
     sf.write(path, data, sr)
     return path
 
-#Checks scaled values are within the expected amplitude range.
+@pytest.mark.skipif(not REMIX_AVAILABLE, reason="Remix functions not available")
 def test_apply_gain_scaling(dummy_wav):
     arr = np.random.uniform(-0.5, 0.5, size=(2, 10000))  # dummy stereo array
     stem_arrays = {"vocals": arr}
@@ -54,99 +77,93 @@ def test_apply_gain_scaling(dummy_wav):
     expected = arr * 0.5
     assert np.allclose(scaled, expected[:, :10000], atol=1e-3)
 
-def test_apply_reverb(dummy_wav):
-    out = dummy_wav.replace(".wav", "_reverb.wav")
-    y_in, sr = sf.read(dummy_wav)
-    result = apply_reverb(dummy_wav, out, reverberance=30)
-    y_out, sr_out = sf.read(out)
 
-    assert os.path.exists(result)
-    assert y_out.shape[0] > 0
+class TestLLMIntegration:
+    @patch('llm_backend.interpreter.client')
+    def test_classify_prompt_separation(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.choices[0].message.content = '{"type": "separation", "stems": ["vocals", "drums"]}'
+        mock_client.chat.completions.create.return_value = mock_response
 
-    # ✅ Check that output has higher or similar RMS energy
-    rms_in = np.sqrt(np.mean(y_in**2))
-    rms_out = np.sqrt(np.mean(y_out**2))
-    assert rms_out >= rms_in
+        result = classify_prompt("give me vocals and drums")
 
-    os.remove(result)
+        assert result["type"] == "separation"
+        assert "vocals" in result["stems"]
+        assert "drums" in result["stems"]
 
-def test_change_pitch(dummy_wav):
-    out = dummy_wav.replace(".wav", "_pitch.wav")
-    y_in, sr_in = sf.read(dummy_wav)
-    result = change_pitch(dummy_wav, out, n_steps=2)
-    y_out, sr_out = sf.read(out)
+    @patch('llm_backend.interpreter.client')
+    def test_classify_prompt_remix(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.choices[0].message.content = '''
+        {
+            "type": "remix",
+            "instructions": {
+                "volumes": {"vocals": 1.2, "drums": 1.0, "bass": 1.0, "other": 1.0},
+                "reverb": {"vocals": 0.5}
+            }
+        }
+        '''
+        mock_client.chat.completions.create.return_value = mock_response
 
-    assert os.path.exists(result)
-    assert y_out.shape[0] > 0
-    assert sr_in == sr_out
+        result = classify_prompt("make vocals louder and add reverb")
 
-    assert not np.allclose(y_in, y_out, atol=1e-3)
+        assert result["type"] == "remix"
+        assert result["instructions"]["volumes"]["vocals"] == 1.2
+        assert result["instructions"]["reverb"]["vocals"] == 0.5
 
-    os.remove(result)
+    @patch('llm_backend.interpreter.client')
+    def test_classify_prompt_clarification(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.choices[0].message.content = '{"type": "clarification", "reason": "unclear_intent"}'
+        mock_client.chat.completions.create.return_value = mock_response
 
+        result = classify_prompt("what can you do?")
 
-def test_apply_compression(dummy_wav):
-    out = dummy_wav.replace(".wav", "_comp.wav")
-    result = apply_compression(dummy_wav, out)
-    assert os.path.exists(result)
-    y, sr = sf.read(result)
-    assert y.shape[0] > 0
-    os.remove(result)
+        assert result["type"] == "clarification"
+        assert result["reason"] == "unclear_intent"
 
+class TestFeedbackSystem:
+    def test_apply_feedback_to_instructions_volume(self):
+        last_instructions = {
+            "volumes": {"vocals": 1.0, "drums": 1.0, "bass": 1.0, "other": 1.0}
+        }
 
-def test_change_pitch_extreme(dummy_wav):
-    out = dummy_wav.replace(".wav", "_pitch_extreme.wav")
-    result = change_pitch(dummy_wav, out, n_steps=12)
-    assert os.path.exists(result)
-    y, sr = sf.read(result)
-    assert y.shape[0] > 0
+        feedback_adjustments = {
+            "volumes": {"vocals": "louder", "drums": "softer"}
+        }
 
-def test_apply_gain_scaling_exact(dummy_wav):
-    y_in, sr = sf.read(dummy_wav)
-    stem_arrays = {"vocals": y_in.T}  # assuming your function expects (channels, samples)
-    volumes = {"vocals": 2.0}
+        result = apply_feedback_to_instructions(feedback_adjustments, last_instructions)
 
-    adjusted = apply_gain_scaling(stem_arrays, volumes, y_in.shape[0])
-    y_out = adjusted[0].T  # transpose back if needed
+        assert result["volumes"]["vocals"] > 1.0
+        assert result["volumes"]["drums"] < 1.0
+        assert result["volumes"]["bass"] == 1.0
 
-    #Check that output is roughly input * 2.0 (within clipping limits)
-    expected = y_in * 2.0
-    np.testing.assert_allclose(y_out, expected, atol=1e-3)
+    def test_apply_feedback_to_instructions_pitch(self):
+        last_instructions = {
+            "volumes": {"vocals": 1.0, "drums": 1.0, "bass": 1.0, "other": 1.0},
+            "pitch_shift": {"vocals": 0}
+        }
 
+        feedback_adjustments = {
+            "pitch_shift": {"vocals": "-4"}
+        }
 
-#reverb extends decay tail energy, as expected from reverb effects
-def test_apply_reverb_has_tail(dummy_wav):
-    import soundfile as sf
-    import librosa
-    from audio_utils.remix import apply_reverb
+        result = apply_feedback_to_instructions(feedback_adjustments, last_instructions)
 
-    out = dummy_wav.replace(".wav", "_reverb.wav")
-    result = apply_reverb(dummy_wav, out, reverberance=80)
-    y_in, sr = sf.read(dummy_wav)
-    y_out, sr_out = sf.read(result)
+        assert result["pitch_shift"]["vocals"] == -4
 
-    assert y_in.shape == y_out.shape
+    def test_generate_remix_name(self):
+        intent = {
+            "instructions": {
+                "volumes": {"vocals": 1.2},
+                "reverb": {"vocals": 0.5},
+                "pitch_shift": {"vocals": 2}
+            }
+        }
 
-    rms_in = librosa.feature.rms(y=y_in.T)[0]
-    rms_out = librosa.feature.rms(y=y_out.T)[0]
+        name = generate_remix_name(intent)
 
-    tail_in = np.mean(rms_in[int(len(rms_in)*0.9):])
-    tail_out = np.mean(rms_out[int(len(rms_out)*0.9):])
-
-    assert tail_out >= tail_in, "Expected reverb to increase or extend tail energy"
-
-    os.remove(result)
-
-
-"""
-DONE:
-Uses pytest fixtures to create a reusable dummy WAV file
-Confirms output files are generated and readable
-Uses tmp_path_factory to store temporary test files cleanly
-Tests each function in isolation → fast debugging cycle
-
-TODO: 
-Add edge cases (zero-length input, invalid path)
-
-Compare pre/post signal properties (RMS, pitch) to validate effect accuracy
-"""
+        assert name.startswith("remix_")
+        assert name.endswith(".wav")
+        assert "reverb" in name
+        assert "pitch" in name

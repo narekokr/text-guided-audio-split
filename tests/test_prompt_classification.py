@@ -22,9 +22,9 @@ from llm_backend.interpreter import classify_prompt
     ),
     (
         "I love this song",
-        "separation",
-        ["stems"],
-        []
+        "clarification",
+        ["reason"],
+        None
     ),
 
     (
@@ -35,25 +35,25 @@ from llm_backend.interpreter import classify_prompt
     ),
     (
         "asdfghjk",
-        "separation",
-        ["stems"],
-        []  # default fallback
+        "clarification",
+        ["reason"],
+        None
     ),
     (
         "",
-        "separation",
-        ["stems"],
-        []  # default fallback for empty prompt
+        "clarification",
+        ["reason"],
+        None
     ),
 ],
-ids=[ #for identifying which specific test case failed
- "remix_vocals_reverb",
- "remix_pitch_shift",
- "separation_vocals_drums",
- "separation_unclear",
- "separation_unknown_stem_trumpet",
- "separation_nonsense",
- "separation_empty"
+ids=[
+    "remix_vocals_reverb",
+    "remix_pitch_shift",
+    "separation_vocals_drums",
+    "clarification_love_song",
+    "separation_vocals_trumpet",
+    "clarification_asdfghjk",
+    "clarification_empty"
 ])
 
 def test_classify_prompt_variants(prompt, expected_type, expected_keys, expected_stems):
@@ -72,34 +72,46 @@ def test_classify_prompt_variants(prompt, expected_type, expected_keys, expected
         if expected_stems is not None:
             assert set(result["stems"]) == set(expected_stems)
 
+    elif expected_type == "clarification":
+        assert "reason" in result
+        # Allow more reason types that the LLM might return
+        valid_reasons = ["unclear_intent", "general_question", "out_of_scope", "nonsense", "unclear", "invalid"]
+        assert result["reason"] in valid_reasons, f"Got unexpected reason: {result['reason']}"
+
 
 def test_debug_pitch_shift():
-    """Debug test to see exactly what classify_prompt returns"""
     prompt = "Shift vocals up by 2 semitones"
     result = classify_prompt(prompt)
 
     print(f"\nDEBUG - Full result: {result}")
     print(f"DEBUG - Type: {result.get('type')}")
-    print(f"DEBUG - Instructions: {result.get('instructions', {})}")
-
     if "instructions" in result:
         instructions = result["instructions"]
-        print(f"DEBUG - Reverb: {instructions.get('reverb', {})}")
-        print(f"DEBUG - Pitch shift: {instructions.get('pitch_shift', {})}")
-        print(f"DEBUG - Volumes: {instructions.get('volumes', {})}")
-
-    # Your original assertions
     assert result["type"] == "remix"
     instructions = result.get("instructions", {})
     assert "volumes" in instructions
     assert "pitch_shift" in instructions
 
-"""
-TODO
-Unknown/unsupported stems
-Empty or nonsense prompts
-Fallback robustness with mocked invalid JSON
-Edge-case inputs with emojis or non-ASCII
-"""
+def test_global_reverb_classification():
+    result = classify_prompt("Add reverb to the whole mix")
+    assert result["type"] == "remix"
+    instructions = result.get("instructions", {})
+    assert "global_reverb" in instructions
+    assert instructions["global_reverb"] > 0
 
-#run by:  pytest tests/test_prompt_classification.py -v
+def test_clarification_classification():
+    result = classify_prompt("What can you do?")
+    assert result["type"] == "clarification"
+    assert "reason" in result
+
+def test_precision_reverb_only():
+    result = classify_prompt("Add reverb to vocals")
+    assert result["type"] == "remix"
+    instructions = result.get("instructions", {})
+
+    assert "reverb" in instructions
+    assert "vocals" in instructions["reverb"]
+
+    if "compression" in instructions:
+        compression_values = list(instructions["compression"].values())
+        assert not any(compression_values) or all(v is None for v in compression_values)
