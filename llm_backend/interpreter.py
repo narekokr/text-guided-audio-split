@@ -237,12 +237,21 @@ def parse_feedback(feedback_text: str) -> dict:
         - If feedback does not mention an effect for a stem, omit that effect.
         - If nothing is detected, return an empty JSON object {}.
 
+        Special pitch cases:
+        - "raise pitch back up by 4 semitones" → {"pitch_shift": {"vocals": "+4"}}
+        - "shift pitch 2 semitones more" → {"pitch_shift": {"vocals": "+2"}}
+        - "shift the changes up by 2 semitones" → {"pitch_shift": {"vocals": "+2"}}
+        - "can you shift the pitch of vocals 2 semitones more" → {"pitch_shift": {"vocals": "+2"}}
+        - "undo the pitch change" → {"pitch_shift": {"vocals": "0"}}
+
         Special cases:
         - "raise pitch back up by 4 semitones" → {"pitch_shift": {"vocals": "+4"}}
         - "undo the pitch change" → {"pitch_shift": {"vocals": "0"}}
         - "separate other" or "isolate other" → {"type": "separation", "stems": ["other"]}
-        - "give me the other part" → {"type": "separation", "stems": ["other"]}
-
+        - "raise pitch back up by 4 semitones" → {"pitch_shift": {"vocals": "+4"}}
+        - "2 semitones more" or "shift 2 semitones more" → {"pitch_shift": {"vocals": "+2"}}
+        - "pitch it down more" → {"pitch_shift": {"vocals": "-2"}}
+        - "make it even louder" → {"volumes": {"vocals": "louder"}} (if vocals was mentioned before)
         Return only valid JSON as above. No explanations.
     """
 

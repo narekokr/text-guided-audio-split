@@ -7,10 +7,6 @@ This project is a FastAPI-based backend that allows users to upload audio files,
 - **FastAPI** Backend service
 - **RDBMS**  To enable multi-turn conversations, user-specific session tracking, and persistent chat history, the system integrates a PostgreSQL database via SQLModel.
 
-> A validation layer ensures only supported stems are passed to Demucs (`vocals`, `drums`, `bass`, `other`), guarding against incorrect or unsafe prompt interpretations.
-
----
-
 ## 🚀 How It Works
 
 1. **User uploads audio** and provides a **natural language prompt** (e.g. `"only separate vocals"`).
@@ -55,6 +51,31 @@ Uses **GPT-4** to classify and interpret natural language user instructions into
 - Supports flexible natural language like:
   > “add reverb to the whole mix to make it more ambient”
 
+## 🎵 Natural Conversation Flow
+Handles diverse user requests with intelligent responses:
+
+**Audio Processing:**
+> "Separate drums and vocals"
+> "Add reverb to the whole mix to make it more ambient"
+
+**Smart Guidance:**
+> "Can I get a trumpet solo?"
+> *"I can only separate vocals, drums, bass, and other instruments. Trumpet would be in the other category - want to try that?"*
+> "Ok give me the other stem"
+
+**Scope Management:**
+> "What time is it?"
+> *"I'm focused on audio processing! Let's work with your track - want to separate stems or add some effects?"*
+
+**Seamless Workflow:**
+> "Ok, let's go back to editing. Please pitch the vocal up by 4 semitones"
+
+- Provides educational responses for unsupported requests
+- Guides users toward available features
+- Maintains conversational context throughout sessions
+- Handles both audio processing and general queries gracefully
+
+---
 ---
 
 ## 🧠 Intelligent Intent Detection System
@@ -79,11 +100,8 @@ Clean separation between intent detection, audio processing, and response genera
 - Multi-stage LLM classification pipeline
 - Context-aware conversation state management  
 - Sophisticated prompt engineering for precise parameter mapping
-- Feedback-driven iterative editing capabilities
-
 
 ## 🔁 Feedback Loop
-
 Enables iterative improvements based on follow-up user feedback, such as:
 
 > "Make vocals even louder and reduce reverb on drums"
@@ -91,6 +109,43 @@ Enables iterative improvements based on follow-up user feedback, such as:
 - Detects intent using a GPT-based feedback parser
 - Applies incremental changes to previously applied effects
 - Tracks and reuses `last_instructions` per session for refinement
+
+---
+
+## Architecture Overview
+
+
+### Clean Architecture Benefits
+
+#### **🔧 Modular Components**
+- **Single Responsibility**: Each module handles one concern
+- **Dependency Injection**: Clean interfaces between layers
+- **Testable Units**: Isolated business logic for comprehensive testing
+- **Scalable Structure**: Easy to extend without breaking existing code
+
+#### **🎯 Separation of Concerns**
+- **API Layer**: HTTP handling, response formatting
+- **Business Logic**: Intent classification, audio processing workflows
+- **Data Layer**: Session management, file operations, persistence
+- **External Services**: LLM integration, audio processing libraries
+
+#### **🛡️ Robust Error Handling**
+- **Input Validation**: Pydantic models with type safety
+- **Comprehensive Logging**: Structured logging for debugging
+- **Exception Isolation**: Errors contained within module boundaries
+
+#### **⚡ Performance Optimizations**
+- **Stateless Design**: Pure functions for core logic
+- **Memory Management**: Automatic cleanup of temporary files
+- **Async Operations**: Non-blocking I/O for concurrent requests
+
+### Technical Stack Integration
+
+- **FastAPI**: Modern async web framework with automatic OpenAPI docs
+- **Pydantic**: Type-safe data validation and serialization
+- **SQLite**: Lightweight persistence for session management
+- **NumPy/PyDub**: Optimized audio processing pipeline
+- **OpenAI GPT-4**: Advanced natural language understanding
 
 ---
 

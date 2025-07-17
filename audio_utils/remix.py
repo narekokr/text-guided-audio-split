@@ -10,8 +10,6 @@ import tempfile
 from audio_utils.helpers import numpy_array_to_audiosegment
 
 
-session_last_instructions = {}
-session_active_task = {}
 
 def handle_remix(intent: dict, session_id: str) -> dict:
     """
@@ -209,7 +207,7 @@ def generate_remix_name(intent: dict) -> str:
     """
     Join descriptors with underscores
     type_str = "_".join(remix_type) if remix_type else "basic"
-    output_name = f"remix_{type_str}_{uuid.uuid4().hex[:6]}.wav"
+    output_name = f" remix_{type_str}_{uuid.uuid4().hex[:6]}.wav"
     """
 
     remix_type = []
