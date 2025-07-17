@@ -133,8 +133,10 @@ async def reset(request: ResetRequest):
 async def get_sessions(user_id: str):
     """Get all sessions for a user."""
     try:
-        sessions = get_user_sessions(user_id)
-        return sessions
+        from db_core.config import get_session
+        with get_session() as db:
+            sessions = get_user_sessions(db, user_id)
+            return sessions
     except Exception as e:
         logger.error(f"Error getting user sessions: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve sessions")
@@ -144,7 +146,9 @@ async def get_sessions(user_id: str):
 async def get_session_history(session_id: str, user_id: str):
     """Get history for a specific session."""
     try:
-        session_exists = get_session_and_verify_user(session_id, user_id)
+        from db_core.config import get_session
+        with get_session() as db:
+            session_exists = get_session_and_verify_user(db, session_id, user_id)
         if not session_exists:
             raise HTTPException(status_code=404, detail="Session not found")
         
